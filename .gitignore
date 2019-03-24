@@ -15,3 +15,5 @@ yarn-error.log
 /bootstrap
 /resources
 /storage
+_ide_helper.php
+artisan
