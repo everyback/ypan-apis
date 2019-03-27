@@ -98,8 +98,23 @@ class FolderController extends Controller
                   from folders f inner join mys m on   m.fid = f.belong )
                 update folders set deleted = 1  where fid in (select fid from mys) ;",$datas
                 );*/
-           $deletefolder =  Folder::where([['user_id',$user_id],['belong',$fid],['deleted','0']])->whereIn('fid',$getarray)->update(["deleted" => 1]);
-            $deletefile = UserFile::where([['updater_id',$user_id],['deleted','0']])->whereIn('folder_id',$getarray)->update(["deleted" => 1]);
+
+                $deletefolder =  Folder::where([['user_id',$user_id],['belong',$fid],['deleted','0']])->whereIn('fid',$getarray)->update(["deleted" => 1]);
+
+                $find = UserFile::where(
+                    [
+                        [ 'folder_id',$fid],
+                        ['updater_id',$user_id],
+                        ['deleted',0],
+                        //  'role'=>0,
+                    ]
+                )->whereIn('folder_id',$getarray)->pluck('file_size')->toArray();
+                $size = array_sum($find);
+                $userspace = auth('api')->user()->space_used;
+                $res2 = User::where('id',$user_id)->update(['space_used'=>$userspace - $size]);
+                $deletefile = UserFile::where([['updater_id',$user_id],['deleted','0']])->whereIn('folder_id',$getarray)->update(["deleted" => 1]);
+
+
 
             /*$flight = Folder::findOrFail($fid);
             $flight->deleted = 1;

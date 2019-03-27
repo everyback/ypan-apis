@@ -29,14 +29,14 @@ class FileController extends Controller
     {
         $file = $request->file("file");
         $from_md5 = strtolower($request->input('md5'));
-        $slice_sha1 = strtolower($request->input('silce_sha1'));
+        $slice_sha1 = strtolower($request->input('slice_sha1'));
         $filename = $request->input('filename');
         $userspace = auth('api')->user()->space;
         $userspaceused = auth('api')->user()->space_used;
         $user_id = auth('api')->user()->id;
         if (!$file )
         {
-            $size = $request->input('filesize');
+            $size = $request->input('size');
             if ($userspaceused+$size >$userspace)
             {
                 return response()->json(['error'=>'space limit'],400);
@@ -44,7 +44,7 @@ class FileController extends Controller
             $getfile = File::where([['md5',$from_md5],['slice_sha1',$slice_sha1],['file_size',$size]])->get();
             if (count($getfile) === 0)
             {
-                return response()->json(['error'=>'No such file'],200);
+                return response()->json(['success'=>'No such file'],200);
             }
             else
             {
@@ -69,6 +69,10 @@ class FileController extends Controller
             $md5 = bin2hex(hash_file('md5', $file->getPathname(), true));
             $crc32 =bin2hex(hash_file('crc32', $file->getPathname(), true));
             //$sha1 = bin2hex(hash_file('sha1', $file->getPathname(), true));
+            if ($userspaceused+$size >$userspace)
+            {
+                return response()->json(['error'=>'space limit'],400);
+            }
             $from_md5 = strtolower($request->input('md5'));
             if ($from_md5 !== $md5)
             {
@@ -493,15 +497,38 @@ FROM user_files WHERE(deleted=0 AND folder_id=? AND updater_id=?) AND file_name 
         }
     }
 
-    protected function searchFolder(array $dir,$user_root,$user_id)
+    protected function searchFolder(array $dir,$user_root,$user_id,$create = false)
     {
         $point_id = $user_root;//先定位到user_root 的fid;
         foreach ( $dir as $value )
         {
+            $last = $point_id;
             $point_id = Folder::where([['user_id',$user_id],['belong',$point_id],['folder_name',$value],['deleted','0']])->value('fid');//输出当前f_name的fid
             if ($point_id === null)
             {
-                break;
+                if($create)
+                {
+                    try{
+                        $point_id = Folder::insertGetId([
+                            'belong'=>$last,
+                            //'phonenumber'=>$phonenumber,
+                            'folder_name'=>$value,
+                            'deleted'=>0,
+                            "creater_id"=>$user_id,
+                            "user_id"=>$user_id,
+                            'updated_at'=>date('Y-m-d H:i:s'),
+                            'created_at'=>date('Y-m-d H:i:s'),
+                        ]);
+                    }catch (\Exception $e)
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    break;
+                }
+
             }
         }
         return $point_id === null || $point_id === '' ? false:$point_id;
@@ -511,7 +538,7 @@ FROM user_files WHERE(deleted=0 AND folder_id=? AND updater_id=?) AND file_name 
     {
         try
         {
-            $fid = $this->searchFolder($dirarray,$user_root,$user_id);
+            $fid = $this->searchFolder($dirarray,$user_root,$user_id,true);
             if (!$fid)
             {
                 throw new \Exception("No such file");

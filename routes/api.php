@@ -67,7 +67,7 @@ Route::middleware(['decode', 'file'])->group(function ($router) {
 });
 
 /*Route::middleware(['decode', 'file'])->group(function ($router) {
-    Route::group(['prefix'=>'file'],function ($router){
+    Route::group(['prefix'=>'file'],function ($rd'w's'q'd'f'r'ce's'w'f'v'g'c'r'd'se'g'b'vouter){
         Route::post('put','File\FileController@addfile');
         Route::post('delete','File\FileController@deletefile');
         Route::post('move','File\FileController@movefile');
