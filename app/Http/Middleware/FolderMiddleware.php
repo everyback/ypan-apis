@@ -20,15 +20,25 @@ class FolderMiddleware
         //$request->all();
         $validator = Validator::make($request->all(), [
             'dir' => 'string|required',
-            //'folder_name' => ['string',new foldername(),'nullable','bail'],
-            'new_folder_name' => ['string',new foldername(),'nullable','bail'],
+            'folder_name' => [new foldername(),'nullable','bail'],
+            'new_foldername' => [new foldername(),'nullable','bail'],
             'dir_to'=>'string|nullable|bail',
             // 'secret'
         ]);
+       /* $validator->sometimes('folder_name',[new foldername(),'nullable','bail'],function ($input){
+            return !is_array($input);
+        });
+        $validator->sometimes('folder_name.*',[new foldername(),'nullable','bail'],function ($input){
+            return is_array($input);
+        });*/
+
         if ($validator->fails())
         {
+            /*var_dump( $validator->failed());
+            die;*/
             return response()->json(['error'=>'Bad Request'],400);
         }
+
 
 
 

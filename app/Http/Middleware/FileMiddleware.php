@@ -23,13 +23,13 @@ class FileMiddleware
         $validator = Validator::make($request->all(), [
             'dir' => 'string|required',
             'dir_to'=>'string|nullable|bail',
-            'folder_name' => ['string',new foldername(),'nullable','bail'],
-//            'filename'=>['string',new filename(),'nullable','bail'],
+            'folder_name' => [new foldername(),'nullable','bail'],
+            'filename'=>[new filename(),'nullable','bail'],
             'md5'=>['string','alpha_num','bail','nullable'],
             'silce_sha1'=>['string','alpha_num','bail','nullable'],
             'pagesize'=>'numeric|nullable',
             'index'=>'numeric|nullable',
-            'new_filename'=>['string',new filename(),'nullable','bail'],
+            'new_filename'=>[new filename(),'nullable','bail'],
             'downloadpath'=>['string','alpha_num','bail','nullable'],
             'page'=>['numeric','min:1'],
             // 'secret'

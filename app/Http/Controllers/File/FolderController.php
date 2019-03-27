@@ -138,7 +138,7 @@ class FolderController extends Controller
         $user_root = auth('api')->user()->user_root;
         $user_id = auth('api')->user()->id;
         $folder_name = $request->input('folder_name');
-        $new_folder_name = $request->input('new_folder_name');
+        $new_folder_name = $request->input('new_foldername');
         if (!$folder_name || !$new_folder_name)
             return response()->json(['error'=>'Bad Request'],400);
         $fid = $this->searchFolder($request->attributes->get('dirarray'),$user_root,$user_id );

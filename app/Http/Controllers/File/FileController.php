@@ -208,9 +208,9 @@ class FileController extends Controller
                 //  'role'=>0,
             ]
         )->where('file_name',$filename)->count();
-        if ($find !== count($filename) || $find === 0)
+        if ( $find === 0)
         {
-            return response()->json(['error'=>'param false'],404);
+            return response()->json(['error'=>'param false'],400);
         }
 
         \DB::beginTransaction();
@@ -224,19 +224,19 @@ class FileController extends Controller
                     //  'role'=>0,
                 ]
             )->where('file_name',$filename)->update(['file_name' => $new_filename],['file_type'=>$type]);
-            if ($res !== count($filename))
+            if ($res !== 1)
             {
                 throw new \Exception('param false');
             }
             //return
             \DB::commit();
-
+            return response()->json(['success'=>'change success']);
         }catch (\Exception $e)
         {
             \DB::rollBack();
-            return response()->json(['error'=>$e],404);
+            return response()->json(['error'=>$e->getMessage()],400);
         }
-        return response()->json(['error'=>'unknow error'],404);
+        return response()->json(['error'=>'unknow error'],500);
     }
 
     function deletefile(Request $request)//可以多个文件一起删

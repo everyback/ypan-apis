@@ -26,7 +26,22 @@ class FilenameRule implements Rule
     public function passes($attribute, $value)
     {
         //
-        return !preg_match('/[\/\\\*\?:<>\"\'|!$]/u', $value);
+        if (!is_array($value))
+        {
+            return !preg_match('/[\/\\\*\?:<>\"\'|!$]/u', $value);
+
+        }
+        else
+        {
+            foreach ($value as $item)
+            {
+                if (preg_match('/[\/\\\*\?:<>\"\'|!$.]/u', $item))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 
     /**
