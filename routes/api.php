@@ -25,19 +25,20 @@ Route::group([
 
 ], function ($router) {
 
-    Route::post('login', 'AuthController@login');
-    Route::post('logout', 'AuthController@logout');
-    Route::post('refresh', 'AuthController@refresh');
-    Route::post('me', 'AuthController@me');
+    Route::post('login', 'Person\AuthController@login');
+    Route::post('logout', 'Person\AuthController@logout');
+    Route::post('refresh', 'Person\AuthController@refresh');
+    Route::post('me', 'Person\AuthController@me');
 });
 
 Route::group([
     'middleware'=>'decode'
 ], function ($router) {
 
-    Route::get('samename','RegisterController@samename');
-    Route::get('sameemail','RegisterController@sameemail');
-    Route::post('register','RegisterController@register')->middleware('register');
+    Route::get('samename','Person\RegisterController@samename');
+    Route::get('sameemail','Person\RegisterController@sameemail');
+    //Route::get('ddddd','RegisterController@sameemail');
+    Route::post('register','Person\RegisterController@register')->middleware('register');
 });
 
 Route::middleware(['decode', 'folder'])->group(function ($router) {
@@ -63,6 +64,7 @@ Route::middleware(['decode', 'file'])->group(function ($router) {
         Route::post('createdownload','File\FileController@createdownloadpath');
         Route::get('countall','File\ShowFolderFrameworkController@count');
         Route::get('showpageinate','File\ShowFolderFrameworkController@showpageinate');
+        Route::get('search', 'File\ShowFolderFrameworkController@showsearch');
     });
 });
 

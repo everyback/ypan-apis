@@ -84,6 +84,21 @@ class ShowFolderFrameworkController extends Controller
 
     }
 
+
+    function showsearch(Request $request)
+    {
+        $user_root = auth('api')->user()->user_root;
+        $user_id = auth('api')->user()->id;
+        $key =  $request->input('key');
+        /*$fid = $this->searchFolder($request->attributes->get('dirarray'),$user_root,$user_id );
+        if (!$fid)
+            return response()->json(['error' => 'no such folder'],404);*/
+        return Folder::where([['user_id',$user_id],['deleted','0'],['folder_name','like','%'.$key.'%']])->orderBy('folder_name', 'desc')->get();
+    }
+
+
+
+
     protected function searchFolder(array $dir,$user_root,$user_id)
     {
         $point_id = $user_root;//先定位到user_root 的fid;
