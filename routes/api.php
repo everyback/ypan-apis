@@ -68,6 +68,8 @@ Route::middleware(['decode', 'file'])->group(function ($router) {
     });
 });
 
+Route::get("rolerouter","Person\RoleRouterController@getrouter");
+
 /*Route::middleware(['decode', 'file'])->group(function ($router) {
     Route::group(['prefix'=>'file'],function ($rd'w's'q'd'f'r'ce's'w'f'v'g'c'r'd'se'g'b'vouter){
         Route::post('put','File\FileController@addfile');
@@ -87,8 +89,8 @@ Route::get('download/{downloadpath}','File\DownloadFileController@download')->mi
 
 
 
-Route::post('getuser','AuthController@getAuthenticatedUser');
+//Route::post('getuser','Person/AuthController@getAuthenticatedUser');
 
 
-Route::post('/putfile','FilesController@putfiles');
-Route::get('/downloadfile','FilesController@downloadfiles');
+//Route::post('/putfile','FilesController@putfiles');
+//Route::get('/downloadfile','FilesController@downloadfiles');

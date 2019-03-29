@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Model\FolderModel as Folder;
 use App\Model\UserFileModel as UserFile;
+use App\User;
 
 class FolderController extends Controller
 {
@@ -62,7 +63,6 @@ class FolderController extends Controller
         \DB::beginTransaction();
         try{
           //  $get = Folder::where([['user_id',$user_id],['belong',$fid],['deleted','0']])->whereIn('folder_name',$folder_name)->update(["deleted" => 1]);
-
             $str = $this->setmult(count($folder_name));
             $datas = array_merge([$fid,$user_id],$folder_name);
 
@@ -84,20 +84,6 @@ class FolderController extends Controller
             $getarray = array_map(function ($value){
                 return $value->fid;
             },$get);
-
-           // dd($getarray);
-           /* $get = \DB::update("with recursive mys  as(
-                  select fid,belong
-                  from folders
-                  where
-                    (belong=? and creater_id=? and deleted='0') and folder_name in($str)
-                  union all
-                  select
-                    f.fid,
-                    f.belong
-                  from folders f inner join mys m on   m.fid = f.belong )
-                update folders set deleted = 1  where fid in (select fid from mys) ;",$datas
-                );*/
 
                 $deletefolder =  Folder::where([['user_id',$user_id],['belong',$fid],['deleted','0']])->whereIn('fid',$getarray)->update(["deleted" => 1]);
 
@@ -302,8 +288,25 @@ class FolderController extends Controller
         }
        $tree = $this->arrayToTree($res,$fid);//文件夹树生成
             //深度优先吧。。。。。
-        $get = $this->setfolders($tree,$newfid);
-       // dd($get);
+        \DB::beginTransaction();
+        try{
+            $allsize = $this->setfolders($tree,$newfid);
+            //var_dump($get);
+            $userspace = auth('api')->user()->space_used;
+            $allspace = auth('api')->user()->space;
+
+            if ($userspace + $allsize < $allspace)
+                $res2 = User::where('id',$user_id)->update(['space_used'=>$userspace + $allsize]);
+            else
+                throw new \Exception("not enough space");
+            \DB::commit();
+        }catch (\Exception $e)
+        {
+            \DB::rollBack();
+            return  response()->json(['error'=>$e->getMessage()],402);
+        }
+
+
 
         return  response()->json(['success'=>'folder copyed']);
     }
@@ -400,6 +403,7 @@ class FolderController extends Controller
     {
       //  $fid =
       //  dump($fid);
+        $size  = 0;
         foreach ($tree as $value)
         {
            // dump($value["fid"]);
@@ -410,6 +414,11 @@ FROM folders WHERE(deleted=0 AND fid=? )",[$fid,$value["fid"]]);
           //
             $nfid = \DB::select("SELECT LAST_INSERT_ID() l")[0]->l;
             //dump($value["child"]);
+
+            $sizes= UserFile::where([["deleted",0],["folder_id",$value["fid"]]])->pluck("file_size")->toArray();
+
+            $size += array_sum($sizes);
+
             $res2 = \DB::insert("INSERT INTO user_files 
 (folder_id,file_oid,file_name,file_type,updater_id,file_size,deleted,created_at,updated_at)
 SELECT ?,file_oid,file_name,file_type,updater_id,file_size,deleted,created_at,updated_at 
@@ -421,7 +430,7 @@ FROM user_files WHERE(deleted=0 AND folder_id=? ) ",[$nfid,$value["fid"]]);
             }
 
         }
-        return 0;
+        return $size;
     }
 }
 
