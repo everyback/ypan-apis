@@ -35,7 +35,7 @@ class FilenameRule implements Rule
         {
             foreach ($value as $item)
             {
-                if (preg_match('/[\/\\\*\?:<>\"\'|!$.]/u', $item))
+                if (preg_match('/[\/\\\*\?:<>\"\'|!$]/u', $item))
                 {
                     return false;
                 }

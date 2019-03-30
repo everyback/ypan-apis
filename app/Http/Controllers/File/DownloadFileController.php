@@ -45,6 +45,8 @@ class DownloadFileController extends Controller
         $destination = fopen('php://temp', 'w+b');
         $size = $res['file_size'];
         //dd($res[0]->file_oid);
+       // dd(sizeof($destination));
+       // getfile()
         $destination = $grid->getfile($file_oid,$destination);
 
         $SendFile->singlefile($destination,$size,$filename);

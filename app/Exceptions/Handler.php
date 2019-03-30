@@ -58,7 +58,6 @@ class Handler extends ExceptionHandler
             return response()->json(['error' => $exception->getMessage()], 401);
         if ($exception instanceof JWTException)
             return response()->json(['error' => $exception->getMessage()], 401);
-
         return parent::render($request, $exception);
     }
 }

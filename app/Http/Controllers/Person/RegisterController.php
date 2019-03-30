@@ -40,7 +40,7 @@ class RegisterController extends Controller
         //$invite =  $decode['invite'];
         $data = [$email,$name];
         if ($this->searchsame(['name','email'],$data))
-            return response()->json(['error'=>'Bad Request'],400);
+            return response()->json(['error'=>'no....'],403);
 
 
 /*        var_dump($getid);
@@ -84,7 +84,7 @@ class RegisterController extends Controller
         if ($gos)
             return response()->json(['success'=>'registed'],200);
         else
-            return response()->json(['failed'=>'Bad Request'],400);
+            return response()->json(['error'=>'Unknow error'],500);
     }
 
 

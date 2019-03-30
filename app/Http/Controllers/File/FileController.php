@@ -52,7 +52,7 @@ class FileController extends Controller
                     $save = $this->saveFile($request->attributes->get('dirarray'),auth('api')->user()->user_root,$user_id,$filename,$size,$getfile->first()->oid);
                 }catch (\Exception $e)
                 {
-                    return response()->json(['error'=>$e],500);
+                    return response()->json(['error'=>$e->getMessage()],400);
                 }
                 if ($save)
                 {
@@ -144,8 +144,6 @@ class FileController extends Controller
         if (!$fid)
             return response()->json(['error'=>'no such folder'],404);
         $dir_to = $request->attributes->get('dir_to');
-
-
         $fid_to = $this->searchFolder($dir_to,$user_root,$user_id);
         if (!$fid_to)
             return response()->json(['error'=>'no such folder'],404);
@@ -159,8 +157,21 @@ class FileController extends Controller
         )->whereIn('file_name',$filename)->count();
         if ($find !== count($filename))
         {
-            return response()->json(['error'=>'param false'],404);
+            return response()->json(['error'=>'no such file(s)'],403);
         }
+        $res = UserFile::where(
+            [
+                [ 'folder_id',$fid_to],
+                ['updater_id',$user_id],
+                ['deleted', 0],
+                //  'role'=>0,
+            ]
+        )->whereIn('file_name',$filename)->exists();
+        if ($res === true)
+        {
+            return response()->json(['error'=>'have same name in to folder'],403);
+        }
+
 
         \DB::beginTransaction();
         try
@@ -183,7 +194,7 @@ class FileController extends Controller
         }catch (\Exception $e)
         {
             \DB::rollBack();
-            return response()->json(['error'=>$e],404);
+            return response()->json(['error'=>$e->getMessage()],403);
         }
         return response()->json(['success'=>'move complete']);
     }
@@ -210,7 +221,19 @@ class FileController extends Controller
         )->where('file_name',$filename)->count();
         if ( $find === 0)
         {
-            return response()->json(['error'=>'param false'],400);
+            return response()->json(['error'=>'no such file'],403);
+        }
+        $samename = UserFile::where(
+            [
+                [ 'folder_id',$fid],
+                ['updater_id',$user_id],
+                ['deleted', 0],
+                //  'role'=>0,
+            ]
+        )->where('file_name',$new_filename)->exists();
+        if ($samename === true)
+        {
+            return response()->json(['error'=>'have same name file'],403);
         }
 
         \DB::beginTransaction();
@@ -234,7 +257,16 @@ class FileController extends Controller
         }catch (\Exception $e)
         {
             \DB::rollBack();
-            return response()->json(['error'=>$e->getMessage()],400);
+            if ($e->getCode() === "23000")
+            {
+                $e = "have same name";
+            }
+            else
+            {
+                $e = $e->getMessage();
+            }
+
+            return response()->json(['error'=>$e],403);
         }
         return response()->json(['error'=>'unknow error'],500);
     }
@@ -249,40 +281,7 @@ class FileController extends Controller
         $user_id = auth('api')->user()->id;
         if (!$fid)
             return response()->json(['error'=>'no such folder'],404);
-        /*if (count($filename) === 1)
-        {
-            \DB::beginTransaction();
-            try
-            {
-                $res = UserFile::where([
-                    ['folder_id', $fid],
-                    ['updater_id', $user_id],
-                    ['deleted', 0],//  'role'=>0,
-                ])->where('file_name', $filename)->pluck('file_size');
-
-                if (count($res) === 0)
-                {
-                    throw new \Exception('no such file');
-                }
-                if (count($res) !== count($filename))
-                {
-                    throw new \Exception('param false');
-                }
-                //return
-                $res = UserFile::where([
-                    ['folder_id', $fid],
-                    ['updater_id', $user_id],
-                    ['deleted', 0],//  'role'=>0,
-                ])->where('file_name', $filename)->update(['deleted' => 1]);
-                $res2 = User::where('id',$user_id)->update([''=>]);
-                \DB::commit();
-                 }catch (\Exception $e)
-                 {
-                     \DB::rollBack();
-                     return response()->json(['error'=>$e->getMessage()],404);
-                 }
-        }
-        else */if(count($filename)!==0)
+        if(count($filename)!==0)
         {
             //dd($filename);
             $find = UserFile::where(
@@ -296,7 +295,7 @@ class FileController extends Controller
             $size = array_sum($find);
             if (count($find) !== count($filename))
             {
-                return response()->json(['error'=>'param false'],404);
+                return response()->json(['error'=>'param false'],403);
             }
             \DB::beginTransaction();
             try
@@ -321,7 +320,7 @@ class FileController extends Controller
             }catch (\Exception $e)
             {
                 \DB::rollBack();
-                return response()->json(['error'=>$e],404);
+                return response()->json(['error'=>$e],403);
             }
         }
         return response()->json(['success'=>'remove '.count($filename).' file(s)'],200);
@@ -343,26 +342,6 @@ class FileController extends Controller
         if (!$fid)
             return response()->json(['error'=>'no such folder'],404);
         return UserFile::where([['folder_id',$fid],['deleted',0]])->paginate($pagesize)->appends(['dir' => $dir]);
-
-
-
-
-/*        $filelist = UserFile::where(
-            [
-                [ 'folder_id',$fid],
-                ['updater_id',$user_id],
-                ['deleted',0],
-            ]
-        )->paginate($pagesize, $columns = ['file_name','file_type','file_size','created_at','updated_at'], $pageName = '',$page);*/
-/*        if (!$filelist )
-        {
-            return response()->json(['success'=>'no file'],200);
-        }*/
-
-
-
-
-
     }
 
     function copyfile(Request $request)
@@ -403,8 +382,9 @@ class FileController extends Controller
                     ['deleted',0],
                     //  'role'=>0,
                 ]
-            )->whereIn('file_name',$filename)->count();
-            if ($res !== 0)
+            )->whereIn('file_name',$filename)->exists();
+           // if ($res !== 0)
+            if ($res === true)
                 throw new \Exception('have same files');
             $str = $this->setmult(count($filename));
             $datas = array_merge([$fid_to,$fid,$user_id],$filename);
@@ -428,7 +408,7 @@ FROM user_files WHERE(deleted=0 AND folder_id=? AND updater_id=?) AND file_name 
             }
         }catch (\Exception $e)
         {
-            return response()->json(['error'=>$e->getMessage()],400);
+            return response()->json(['error'=>$e->getMessage()],403);
         }
 
         return response()->json(['success'=>'copy complete']);
@@ -467,14 +447,14 @@ FROM user_files WHERE(deleted=0 AND folder_id=? AND updater_id=?) AND file_name 
         {
             $path = $this->makePath(40);
             $file_oid = $res[0]->file_oid;
-            $file_name = json_encode($res[0]->file_name);
+            $file_name = $res[0]->file_name;
             $size = $res[0]->file_size;
             \DB::beginTransaction();
             try{
                 $res = DownloadPath::create(
                     [
                         'file_oid'=>$file_oid,
-                        'file_name'=>$file_name,
+                        'file_name'=>json_encode([$file_name]),
                         'file_download_path'=>$path,
                         'user_id'=>$user_id,
                         'file_size'=>$size,
@@ -483,13 +463,16 @@ FROM user_files WHERE(deleted=0 AND folder_id=? AND updater_id=?) AND file_name 
                     ]
                 );
                 \DB::commit();
+//                var_dump($file_name);
+//                die;
             }catch (\Exception $e)
             {
                 \DB::rollBack();
-                return response()->json(['error'=>$e],404);
+                return response()->json(['error'=>$e->getMessage()],403);
             }
+
             $path = $_SERVER["HTTP_HOST"].'/api/download/'.$path;
-            return response()->json(['success'=>['path'=>$path]],200);
+            return response()->json(['success'=>['path'=>$path,"name"=>$file_name]],200);
         }
         else
         {
@@ -552,8 +535,8 @@ FROM user_files WHERE(deleted=0 AND folder_id=? AND updater_id=?) AND file_name 
                     [
                         [ 'folder_id',$fid],
                         ['file_name',$filename],
+                        ['deleted',0],
                         ['updater_id',auth('api')->user()->id],
-                        //  'role'=>0,
                     ]
                 )->count();
                 if ($same !==0)
@@ -568,8 +551,6 @@ FROM user_files WHERE(deleted=0 AND folder_id=? AND updater_id=?) AND file_name 
                         'file_type'=>$filetype,
                         'updater_id'=>auth('api')->user()->id,
                         'file_size'=>$size,
-
-                        //  'role'=>0,
                     ]
                 );
                 $user = User::find(auth('api')->user()->id);
@@ -579,15 +560,12 @@ FROM user_files WHERE(deleted=0 AND folder_id=? AND updater_id=?) AND file_name 
             }catch (\Exception $e)
             {
                 \DB::rollBack();
-                dump($e);
                 throw new \Exception($e->getMessage());
-                //return response()->json(['error'=>'Bad Request'],400);
             }
         }catch (\Exception $exception)
         {
-            throw new \Exception($e->getMessage());
+            throw new \Exception($exception->getMessage());
         }
-
         return true;
     }
 

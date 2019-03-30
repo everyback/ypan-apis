@@ -138,13 +138,28 @@ class FolderController extends Controller
             return response()->json(['error' => 'no such folder'],404);
         }
 
+        $res = Folder::where([['user_id',$user_id],['belong',$fid],['deleted','0'],["folder_name",$new_folder_name]])->exists();
+
+        if ($res === true)
+        {
+            return response()->json(['error' => "have same name"],403);
+        }
+
         try{
             $flight = Folder::findOrFail($fid);
             $flight->folder_name = $new_folder_name;
             $flight->save();
         }catch (\Exception $e)
         {
-            return  response()->json(['error'=>$e],500);
+            if ($e->getCode() === "23000")
+            {
+                $e = "have same name";
+            }
+            else
+            {
+                $e = $e->getMessage();
+            }
+            return  response()->json(['error'=>$e],403);
         }
 
         return  response()->json(['success'=>'foldername changed']);
@@ -167,7 +182,7 @@ class FolderController extends Controller
         {
             if ($request->input('dir') === $request->input('dir_to'))
             {
-                return response()->json(['error' => 'can t use same directory'],400);
+                return response()->json(['error' => 'can t use same directory'],403);
             }
             $long = count($request->attributes->get('dirarray'));
             $from = '/'.implode("/", $request->attributes->get('dirarray'));
@@ -182,7 +197,7 @@ class FolderController extends Controller
                 {
                     /*var_dump($from."/".$value);
                     die;*/
-                    return response()->json(['error' => 'can t move to child directory'],400);
+                    return response()->json(['error' => 'can t move to child directory'],403);
                 }
             }
         }
@@ -209,7 +224,7 @@ class FolderController extends Controller
             {
                 if ($request->input('dir') === $request->input('dir_to'))
                 {
-                    return response()->json(['error' => 'can t use same directory'],400);
+                    return response()->json(['error' => 'can t use same directory'],403);
                 }
             }
         }
@@ -219,7 +234,7 @@ class FolderController extends Controller
             $newfid = $this->searchFolder($request->attributes->get('dir_to'),$user_root,$user_id );
         $countfolder = Folder::where([['user_id',$user_id],['belong',$newfid],['deleted','0']])->whereIn('folder_name',$folder_name)->get();
         if (count($countfolder) !== 0)
-            return response()->json(['error' => 'have same name folder'],400);
+            return response()->json(['error' => 'have same name folder'],403);
         \DB::beginTransaction();
         try{
             $fid = Folder::where([['user_id',$user_id],['belong',$fid],['deleted','0']])->whereIn('folder_name',$folder_name)->update(['belong' => $newfid]);
@@ -260,12 +275,12 @@ class FolderController extends Controller
        // dd($fid);
         if ($foldersum !== count($folder_name))
         {
-            return response()->json(['error'=>'sum folder false ,please fresh it and reselect'],400);
+            return response()->json(['error'=>'sum folder false ,please fresh it and reselect'],403);
         }
         $cover = Folder::where([['user_id',$user_id],['belong',$newfid],['deleted','0']])->whereIn('folder_name',$folder_name)->count();//测重复
         if ($cover !== 0 )
         {
-            return response()->json(['error'=>'have same name folder'],400);
+            return response()->json(['error'=>'have same name folder'],403);
         }
         $str = $this->setmult(count($folder_name));
         $datas = array_merge([$fid,$user_id],$folder_name);
@@ -284,7 +299,7 @@ class FolderController extends Controller
        $res = array_merge([(object)['fid'=>$fid,'belong'=>-1]],$res);//拿到正式的文件夹树平面
         if(count($res) > 1000)
         {
-            return response()->json(['error'=>'too much, gun'],400);
+            return response()->json(['error'=>'too much, gun'],403);
         }
        $tree = $this->arrayToTree($res,$fid);//文件夹树生成
             //深度优先吧。。。。。
@@ -303,7 +318,7 @@ class FolderController extends Controller
         }catch (\Exception $e)
         {
             \DB::rollBack();
-            return  response()->json(['error'=>$e->getMessage()],402);
+            return  response()->json(['error'=>$e->getMessage()],403);
         }
 
 

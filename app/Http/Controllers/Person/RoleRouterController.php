@@ -48,6 +48,6 @@ class RoleRouterController extends Controller
             ];
             return response()->json(["success"=>["routes"=>$routes,"items"=>$items]]);
         }
-        return response()->json(["error"=>"no such role"],402);
+        return response()->json(["error"=>"no such role"],406);
     }
 }
