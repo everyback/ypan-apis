@@ -45,6 +45,6 @@ class UserFileDownload extends Migration
     public function down()
     {
         //
-        Schema::dropIfExists('user_files');
+        //Schema::dropIfExists('user_files_download');
     }
 }

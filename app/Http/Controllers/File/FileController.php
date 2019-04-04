@@ -16,6 +16,7 @@ use MongoGrid\MongoGrid as Grid;
 use zip\zip;
 use SendFile\SendFile;
 use App\Model\FileDownloadPathModel as DownloadPath;
+use myglobal\myglobal;
 
 class FileController extends Controller
 {
@@ -386,7 +387,7 @@ class FileController extends Controller
            // if ($res !== 0)
             if ($res === true)
                 throw new \Exception('have same files');
-            $str = $this->setmult(count($filename));
+            $str = myglobal::setmult(count($filename));
             $datas = array_merge([$fid_to,$fid,$user_id],$filename);
             \DB::beginTransaction();
             try{
@@ -445,7 +446,7 @@ FROM user_files WHERE(deleted=0 AND folder_id=? AND updater_id=?) AND file_name 
         }
         if (count($res) === 1)
         {
-            $path = $this->makePath(40);
+            $path = myglobal::makePath(40);
             $file_oid = $res[0]->file_oid;
             $file_name = $res[0]->file_name;
             $size = $res[0]->file_size;
@@ -570,38 +571,5 @@ FROM user_files WHERE(deleted=0 AND folder_id=? AND updater_id=?) AND file_name 
     }
 
 
-
-    protected function makePath( $length = 8 )
-    {
-        $arr = [1 => "0123456789", 2 => "abcdefghijklmnopqrstuvwxyz"];
-
-        $string = implode("", $arr);
-
-        $count = strlen($string) - 1;
-        $code = '';
-        for ($i = 0; $i < $length; $i++) {
-            $code .= $string[rand(0, $count)];
-        }
-        return $code;
-    }
-
-    protected function setmult(int $number)
-    {
-        $str = '';
-        $flag = true;
-        for($i = 0 ;$i<$number;$i++)
-        {
-            if ($flag)
-            {
-                $str .= '?';
-                $flag = false;
-            }
-            else
-            {
-                $str .= ',?';
-            }
-        }
-        return $str;
-    }
 
 }

@@ -46,15 +46,6 @@ class ShowFolderFrameworkController extends Controller
         $fid = $this->searchFolder($request->attributes->get('dirarray'),$user_root,$user_id );
         if (!$fid)
             return response()->json(['error' => 'no such folder'],404);
-       /* if ($fid !== $user_root && $folder_name === null )
-        {
-            //dd($fid);
-            $fid = Folder::where([['user_id',$user_id],['belong',$fid],['folder_name',$folder_name],['deleted','0']])->value('fid');
-           // dd($fid);
-            if (!$fid)
-                return response()->json(['error' => 'no such folder'],404);
-        }*/
-
         $count = Folder::where([['user_id',$user_id],['belong',$fid],['deleted','0']])->count();//总文件夹数
         $over = $count%$pagesize;
         //dd($over);
@@ -112,5 +103,7 @@ class ShowFolderFrameworkController extends Controller
         }
         return $point_id === null || $point_id === '' ? false:$point_id;
     }
+
+
 
 }

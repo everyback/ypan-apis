@@ -10,6 +10,7 @@ use \App\Rules\OnlywordnumberRule as name;
 use App\Rules\OnlywordnumberRule as own;
 use App\Rules\FilenameRule as filename;
 
+
 class DecodeInput
 {
     /**
@@ -59,4 +60,5 @@ class DecodeInput
 
         return $next($request);
     }
+
 }

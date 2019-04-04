@@ -76,6 +76,7 @@ class Kernel extends HttpKernel
         'folder'=> \App\Http\Middleware\FolderMiddleware::class,
         'file'=>\App\Http\Middleware\FileMiddleware::class,
         'downloadfile'=> \App\Http\Middleware\DownloadFileMiddleware::class,
+        'share'=>\App\Http\Middleware\ShareMiddleware::class,
     ];
 
     /**

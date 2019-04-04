@@ -44,7 +44,8 @@
             "database/factories",
             "zip/zip.php",
             "MongoGrid/MongoGrid.php",
-            "SendFile/SendFile.php"
+            "SendFile/SendFile.php",
+            "myglobal/myglobal.php"
         ]
     },
     "autoload-dev": {
