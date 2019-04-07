@@ -150,7 +150,16 @@ class ShareController extends Controller
 
     function showalllists(Request $request)
     {
+        $pagesize = $request->input('pagesize') !== null ? $request->input('pagesize') :20 ;
+        $page = $request->input('page') !== null ? $request->input('page') :1 ;
+        try{
+            $get = Share::where([['invalidation',0],['private',0]])->limit($pagesize)->offset($pagesize*($page -1))->get();
 
+        }catch (\Exception $e)
+        {
+            return response()->json(['error'=>$e->getMessage()],403);
+        }
+        return $get;
     }
 
     function showUserlists(Request $request)
@@ -165,10 +174,7 @@ class ShareController extends Controller
         {
             return response()->json(['error'=>$e->getMessage()],403);
         }
-        $get->re
         return $get;
-
-
     }
 
 
@@ -197,17 +203,37 @@ class ShareController extends Controller
             }
             return response()->json(['success'=>'cancel complete'],403);
         }
-
     }
 
-    function searchshare()
+    function searchshare(Request $request)
     {
+        $pagesize = $request->input('pagesize') !== null ? $request->input('pagesize') :20 ;
+        $page = $request->input('page') !== null ? $request->input('page') :1 ;
+        $search = $request->input('sraech');
+        try{
+            $get = Share::where([['invalidation',0],['private',0]])->where('showname', 'like', "%.$search.%")->limit($pagesize)->offset($pagesize*($page -1))->get();
 
+        }catch (\Exception $e)
+        {
+            return response()->json(['error'=>$e->getMessage()],403);
+        }
+        return $get;
     }
 
-    function searchusershare()
+    function searchusershare(Request $request)
     {
+        $pagesize = $request->input('pagesize') !== null ? $request->input('pagesize') :20 ;
+        $page = $request->input('page') !== null ? $request->input('page') :1;
+        $user_id = auth('api')->user()->id;
+        $search = $request->input('sraech');
+        try{
+            $get = Share::where([['invalidation',0],['user_id',$user_id]])->where('showname', 'like', "%.$search.%")->limit($pagesize)->offset($pagesize*($page -1))->get();
 
+        }catch (\Exception $e)
+        {
+            return response()->json(['error'=>$e->getMessage()],403);
+        }
+        return $get;
     }
 
     protected function searchFolder(array $dir,$user_root,$user_id,$create = false)

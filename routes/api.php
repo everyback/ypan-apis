@@ -61,12 +61,14 @@ Route::middleware(['decode', 'file'])->group(function ($router) {
         Route::post('copy','File\FileController@copyfile');
       //  Route::post('rename','File\File');
         Route::get('show','File\FileController@showfiles');
-        Route::post('createdownload','File\FileController@createdownloadpath');
+
         Route::get('countall','File\ShowFolderFrameworkController@count');
         Route::get('showpageinate','File\ShowFolderFrameworkController@showpageinate');
         Route::get('search', 'File\ShowFolderFrameworkController@showsearch');
     });
 });
+
+Route::post('createdownload','File\DownloadFileController@createdownloadpath')->middleware(['decode','file']);
 
 Route::get("rolerouter","Person\RoleRouterController@getrouter");
 
@@ -79,12 +81,11 @@ Route::middleware(['decode','share' ])->group(function ($router) {
         Route::post('publiclist','File\ShareController@showalllists');
         Route::get('userlist','File\ShareController@showUserlists');
         Route::get('link/{sharepath}','File\ShareController@showshare');
-        //  Route::post('rename','File\File');
-        Route::get('show','File\FileController@showfiles');
-        Route::post('createdownload','File\FileController@createdownloadpath');
-        Route::get('countall','File\ShowFolderFrameworkController@count');
-        Route::get('showpageinate','File\ShowFolderFrameworkController@showpageinate');
-        Route::get('search', 'File\ShowFolderFrameworkController@showsearch');
+        Route::get('search', 'File\ShareController@searchshare');
+        Route::get('search/user', 'File\ShareController@searchusershare');
+
+        Route::post('createdownload','File\FileController@createdownloadpath');//还没搞好
+
     });
 });
 

@@ -41,11 +41,7 @@ class RegisterController extends Controller
         //$invite =  $decode['invite'];
         $data = [$email,$name];
         if ($this->searchsame(['name','email'],$data))
-            return response()->json(['error'=>'no....'],403);
-
-
-/*        var_dump($getid);
-        die;*/
+            return response()->json(['error'=>'have same name or email'],403);
         \DB::beginTransaction();
         try
         {
