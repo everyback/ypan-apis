@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Model\FolderModel as Folder;
 use App\Model\UserFileModel as UserFile;
 use App\User;
+use myglobal\myglobal;
 
 class FolderController extends Controller
 {
@@ -63,7 +64,7 @@ class FolderController extends Controller
         \DB::beginTransaction();
         try{
           //  $get = Folder::where([['user_id',$user_id],['belong',$fid],['deleted','0']])->whereIn('folder_name',$folder_name)->update(["deleted" => 1]);
-            $str = $this->setmult(count($folder_name));
+            $str = myglobal::setmult(count($folder_name));
             $datas = array_merge([$fid,$user_id],$folder_name);
 
             $get = \DB::select("with recursive mys  as(
@@ -282,7 +283,7 @@ class FolderController extends Controller
         {
             return response()->json(['error'=>'have same name folder'],403);
         }
-        $str = $this->setmult(count($folder_name));
+        $str = myglobal::setmult(count($folder_name));
         $datas = array_merge([$fid,$user_id],$folder_name);
         $res = \DB::select("with recursive mys  as(
                   select fid,belong
@@ -297,7 +298,7 @@ class FolderController extends Controller
                 select * from mys;",
             $datas);
        $res = array_merge([(object)['fid'=>$fid,'belong'=>-1]],$res);//拿到正式的文件夹树平面
-        if(count($res) > 1000)
+        if(count($res) > 100)
         {
             return response()->json(['error'=>'too much, gun'],403);
         }
@@ -362,27 +363,10 @@ class FolderController extends Controller
         return $point_id === null || $point_id === '' ? false:$point_id;
     }
 
-    protected function setmult(int $number)
-    {
-        $str = '';
-        $flag = true;
-        for($i = 0 ;$i<$number;$i++)
-        {
-            if ($flag)
-            {
-                $str .= '?';
-                $flag = false;
-            }
-            else
-            {
-                $str .= ',?';
-            }
-        }
-        return $str;
-    }
 
 
-    protected function arrayToTree($source,$fid){
+
+    protected function arrayToTree($source,$fid){//初步整理，将上下节点整理归属
         $childMap = [];
         foreach ($source as $key => $value) {
 
@@ -391,7 +375,7 @@ class FolderController extends Controller
             {
                 $childMap[$k] = [];
             }
-            $childMap[$k][] = $value;
+            $childMap[$k][] = $value;//向子项目添加树结构
         }
         return $this->makeTree($childMap,$fid);
        // return $childMap;
@@ -422,6 +406,7 @@ class FolderController extends Controller
         foreach ($tree as $value)
         {
            // dump($value["fid"]);
+            //复制文件夹
             $res2 = \DB::insert("INSERT INTO folders 
 ( belong, folder_name, creater_id, user_id, deleted, created_at, updated_at)
 SELECT  ?, folder_name, creater_id, user_id, deleted, created_at, updated_at
@@ -433,7 +418,7 @@ FROM folders WHERE(deleted=0 AND fid=? )",[$fid,$value["fid"]]);
             $sizes= UserFile::where([["deleted",0],["folder_id",$value["fid"]]])->pluck("file_size")->toArray();
 
             $size += array_sum($sizes);
-
+            //复制文件
             $res2 = \DB::insert("INSERT INTO user_files 
 (folder_id,file_oid,file_name,file_type,updater_id,file_size,deleted,created_at,updated_at)
 SELECT ?,file_oid,file_name,file_type,updater_id,file_size,deleted,created_at,updated_at 
@@ -450,6 +435,28 @@ FROM user_files WHERE(deleted=0 AND folder_id=? ) ",[$nfid,$value["fid"]]);
 }
 
 
+
+
+
+/*
+ *    protected function setmult(int $number)
+    {
+        $str = '';
+        $flag = true;
+        for($i = 0 ;$i<$number;$i++)
+        {
+            if ($flag)
+            {
+                $str .= '?';
+                $flag = false;
+            }
+            else
+            {
+                $str .= ',?';
+            }
+        }
+        return $str;
+    }*/
 
 
 /* $fid = Folder::where([['user_id',$user_id],['belong',$fid],['deleted','0']])->whereIn('folder_name',$folder_name)->pluck('fid');

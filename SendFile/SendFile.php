@@ -8,9 +8,17 @@
 
 namespace SendFile;
 
+use zip\zip;
 
 class SendFile
 {
+    protected $zip;
+
+    function __construct(zip $zip)
+    {
+        $this->zip = $zip;
+    }
+
 
 
     function singlefile($destination,$size,$filename)
@@ -58,11 +66,36 @@ class SendFile
         }
     }
 
-    function zipfile()
+    function sethead($allname)
     {
+        Header ( "Content-type: application/octet-stream" );
+        header ( 'Cache-Control: public, must-revalidate, max-age=0' );
+        header ( 'Pragma: no-cache' );
+        header ( 'Accept-Ranges: bytes' );
+
+        header ( "Content-Disposition: attachment; filename=$allname.zip" );
+        header ( "Content-Transfer-Encoding: binary" );
+        header ( "Last-Modified: ".time() );
+
+        header ( 'HTTP/1.1 200 OK' );
+        $this->zip->setDoWrite();
 
     }
 
+
+    function zipfile($destination,$filename)
+    {
+//        var_dump($filename);
+//            die;
+        $this->zip->addFile(stream_get_contents($destination, -1, 0),iconv("utf-8","gbk",$filename));
+        flush();
+
+    }
+
+    function endzipsend()
+    {
+        $this->zip->file();
+    }
 
 
 

@@ -62,6 +62,8 @@ Route::middleware(['decode', 'file'])->group(function ($router) {
       //  Route::post('rename','File\File');
         Route::get('show','File\FileController@showfiles');
 
+
+
         Route::get('countall','File\ShowFolderFrameworkController@count');
         Route::get('showpageinate','File\ShowFolderFrameworkController@showpageinate');
         Route::get('search', 'File\ShowFolderFrameworkController@showsearch');
@@ -69,6 +71,7 @@ Route::middleware(['decode', 'file'])->group(function ($router) {
 });
 
 Route::post('createdownload','File\DownloadFileController@createdownloadpath')->middleware(['decode','file']);
+Route::post('createpath','File\DownloadFileController@createpath')->middleware(['decode','file']);
 
 Route::get("rolerouter","Person\RoleRouterController@getrouter");
 
@@ -113,4 +116,4 @@ Route::get('download/{downloadpath}','File\DownloadFileController@download')->mi
 
 
 //Route::post('/putfile','FilesController@putfiles');
-//Route::get('/downloadfile','FilesController@downloadfiles');
+Route::get('/downloadfile','FilesController@downloadfiles');

@@ -51,7 +51,7 @@ class myglobal
         return $str;
     }
 
-    static function makePath( $length = 8 )
+    static function makePath( $length = 8 ,$lower = false)
     {
         $arr = [1 => "0123456789", 2 => "abcdefghijklmnopqrstuvwxyz",3=>'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
 
@@ -62,7 +62,43 @@ class myglobal
         for ($i = 0; $i < $length; $i++) {
             $code .= $string[rand(0, $count)];
         }
-        return $code;
+        if ($lower === true)
+            return strtolower($code);
+        else
+            return $code;
     }
+
+    static function arrayToTree($source,$fid){//初步整理，将上下节点整理归属
+        $childMap = [];
+        foreach ($source as $key => $value) {
+
+            $k = $value->belong;
+            if( !isset( $childMap[$k] ) )
+            {
+                $childMap[$k] = [];
+            }
+            $childMap[$k][] = $value;//向子项目添加树结构
+        }
+        return self::makeTree($childMap,$fid);
+        // return $childMap;
+    }
+
+    static function makeTree($childMap,$parentid=0){
+        $k = $parentid;
+        $items = isset( $childMap[$k] )?$childMap[$k]:[];
+        if(!$items)
+        {
+            return 0;
+        }
+        $trees = [];
+        //dd($items);
+
+        foreach ($items as  $value) {
+            //dump($value);
+            $trees[] = ['fid'=>$value->fid,'child'=>self::makeTree($childMap,$value->fid)];
+        }
+        return $trees;
+    }
+
 }
 

@@ -92,7 +92,7 @@ class FilesController extends Controller
                 'username' => 'griduser',
                 'password' => '123456',
                 "authSource"=>"gridfs"
-            ]))->gridfs->selectGridFSBucket()->find(["md5"=>"58d6d6332f939fd9b5435456b644b825","filename"=>"ab6f5c266be0e6e4fcb06f02e62b1ddba9fce0b7895e90225d3e3750084b6b03"])->toArray();
+            ]))->gridfs->selectGridFSBucket()->find(["md5"=>"b4b071a9a424605219d7e2303da3b5de"/*,"filename"=>"ab6f5c266be0e6e4fcb06f02e62b1ddba9fce0b7895e90225d3e3750084b6b03"*/])->toArray();
         $fileid = $res[0]->bsonSerialize()->_id;
         // dump($fileid->__toString());
         //dump();
@@ -175,7 +175,15 @@ class FilesController extends Controller
 
         set_time_limit(0);
 
-        $zip->addFile(stream_get_contents($destination, -1, 0),iconv("utf-8","gbk",'filessss'));
+        $datas = stream_get_contents($destination, -1, 0);
+
+        $zip->addFile($datas,iconv("utf-8","gbk",'dsfdsdf'));
+        $zip->addFile("dsfdsgfdsgdsfgeswgsedrgfdsgfdsgdsfgdsgdsgdsgds",iconv("utf-8","gbk",'fiules'));
+        //flush();
+        $zip->addFile("dsfdsgfdsgdsfgeswgsedrgfdsgfdsgdsfgdsgdsgdsgds",iconv("utf-8","gbk",'fiddd'));
+       // flush();
+
+
         flush();
         $zip->setComments(iconv("utf-8","gbk","一些注释"));
         $zip->file();
