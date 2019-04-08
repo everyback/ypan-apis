@@ -8,13 +8,17 @@ use App\Model\FolderModel as Folder;
 use App\Model\UserFileModel as UserFile;
 use App\Model\ShareModel as Share;
 use myglobal\myglobal;
+use App\Model\share_count as ShareCount;
+use App\Events\ShareEvent;
+use App\Model\NDownloadPath as Path;
+//use Psy\Exception;
 
 class ShareController extends Controller
 {
     //
     function __construct()
     {
-        $this->middleware('auth:api' ,['except' => ['showlists','refresh',"showshare"]]);
+        $this->middleware('auth:api' ,['except' => ['showlists','refresh',"showshare","searchshare","createdownload"]]);
     }
 
     function createshare(Request $request)
@@ -23,7 +27,7 @@ class ShareController extends Controller
         $user_root = auth('api')->user()->user_root;
         $dir = $request->attributes->get('dirarray');
         $filename = $request->input('filename');
-        $folder_name = $request->input('folder_name');
+        $folder_name = $request->input('foldername');
         $active_time = $request->input('active_time') ? $request->input('active_time') : 7*24*24*60*60;
         $active_time = $active_time <= 0 ? -1:$active_time;
         $private = $request->input('private') ? $request->input('private'): false;
@@ -88,6 +92,12 @@ class ShareController extends Controller
                 "show_name"=>$showname,
                 'created_at'=>date('Y-m-d H:i:s'),
             ]);
+
+            $get2 = ShareCount::create([
+                'share_path'=>$path,
+            ]);
+
+
         }catch (\Exception $e)
         {
             return response()->json(['error'=>$e->getMessage()],403);
@@ -101,34 +111,29 @@ class ShareController extends Controller
 
     function showshare($sharepath = null,Request $request)//展示单个share具体的内容
     {
+        //dd("dsdsadasdasd");
         if ($sharepath === null || $sharepath === "all")//将错误的重新定向到share列表去
         {
             $this->showalllists($request);
         }
         $dir = $request->attributes->get('dirarray');
-        $get = Share::where([['share_path',$sharepath],['invalidation',0]])->first();//找到分享链接
+        $code = $request->input('code') === null ? '': $request->input('code');
+        try{
+            $get = $this->getsharecollection($sharepath,$code);
 
-        if ($get->code !== "" )//是否是加密链接
+        }catch (\Exception $e)
         {
-            $code = $request->input('code');
-            if (strtolower($code) !== $get->code)
-            {
-                return response()->json(['error'=>['code error']],403);
-            }
+            return response()->json(['error'=>$e->getMessage()],403);
         }
-        if ($get === null)
-        {
-            return response()->json(['error'=>['no such share or sharelink had out of time']],404);
-        }
-        if ($get->active_time === -1 && time() - $get->created_at > $get->active_time)//超时与永久
-        {
-            $get = Share::where([['share_path',$sharepath],['invalidation',0]])->update(['invalidation'=>1]);
-            return response()->json(['error'=>['no such share or sharelink had out of time']]);
-        }
+
         $files = $get->share_files;
         $folders = $get->share_folders;
+
         if ( !is_array($dir) || count($dir) === 0)//没有指定dir就是显示分享的基础连接
         {
+            $user_id = auth('api')->user();
+            $user_id = $user_id === null ? -1:$user_id->id;
+            event(new ShareEvent($user_id, \Request::getClientIp(),'read',$sharepath, time()));//是否有阅读
             $ret = ($this->pagecreatebyid($files,$folders,50));
             return response()->json(['success'=>['data'=>$ret]],200);
         }
@@ -235,6 +240,184 @@ class ShareController extends Controller
         }
         return $get;
     }
+
+
+    function saveto(Request $request)
+    {
+
+    }
+
+    function createdownload(Request $request)
+    {
+        $dir = $request->attributes->get('dirarray');
+        $user_id = auth('api')->user() === null ? -1:auth('api')->user()->id ;
+//        $user_root = auth('api')->user()->user_root;
+        $sharepath = $request->input('sharepath');
+        $filename = $request->input('filename') === null ? [] : $request->input('filename');
+        $foldername = $request->input('foldername') === null ? [] : $request->input('foldername');
+
+        $code = $request->input('code') === null ? '': $request->input('code');
+        try{
+            $get = $this->getsharecollection($sharepath,$code);//获取整个share的集合
+
+        }catch (\Exception $e)
+        {
+            return response()->json(['error'=>$e->getMessage()],403);
+        }
+        $folders = $get->share_folders;
+        $files = $get->share_files;
+        $getfiles = [];
+        $getfolders = [];
+        $dircount = count($dir);
+        if ($dircount !== 0)//代表选择的不是表层的元素
+        {
+            $fid = $this->searchShareFileFid($dir ,$folders);
+        }
+        else//代表选择的是表层的元素
+        {
+            $fid = -1;
+        }
+
+
+        if (!$fid)
+            return response()->json(['error'=>'no such folder'],404);
+        $count = 0 ;
+
+        if ($foldername !== null &&count($foldername) !== 0)//代表有值
+        {
+            if ($dircount !== 0)
+            {
+                $getfolders = Folder::where(
+                    [
+                        [ 'belong',$fid],
+                        ['deleted',0],
+                        //  'role'=>0,
+                    ]
+                )->whereIn('folder_name',$foldername)->get(["fid","folder_name"]);
+            }
+            else
+            {
+                $getfolders = Folder::where(
+                    [
+                        ['deleted',0],
+                        //  'role'=>0,
+                    ]
+                )->whereIn('folder_name',$foldername)->whereIn('fid',$folders)->get(["fid","folder_name"]);
+            }
+           // dd($getfolders);
+            if ($getfolders === null)
+                return response()->json(['error'=>'no such folder'],404);
+            $temp = [];
+            $getfolders = $getfolders->all();
+            foreach( $getfolders as $value)
+                array_push($temp,$value->fid);
+            $showname = $getfolders[0]->folder_name;
+            $getfolders = $temp;
+            //            dd($folders);
+            $count +=count($getfolders);
+        }
+
+        if ($filename !== null &&count($filename) !== 0)//代表有值
+        {
+            if ($dircount !== 0)
+            {
+                $getfiles = UserFile::where([['folder_id', $fid],['deleted', 0], //                mid, folder_id, file_oid, , file_type, updater_id, file_size, deleted, created_at, updated_at
+                        //  'role'=>0,
+                    ])->whereIn('file_name', $filename)->get(["mid", "file_name"]);
+            }
+            else
+            {
+                $getfiles = UserFile::where([
+                    ['deleted', 0], //                mid, folder_id, file_oid, , file_type, updater_id, file_size, deleted, created_at, updated_at
+                    //  'role'=>0,
+                ])->whereIn('file_name', $filename)->whereIn("mid",$files)->get(["mid", "file_name"]);
+            }
+           // dd($filename);
+            if ($getfiles === null || count($getfiles) !== count($filename))
+                return response()->json(['error'=>'no such file'],404);
+            $temp = [];
+
+            $getfiles = $getfiles->all();
+            foreach( $getfiles as $value)
+                array_push($temp,$value->mid);
+            $showname = $getfiles[0]->file_name;
+
+            if ($showname === '')
+                $showname = $getfiles[$temp[0]];
+            $getfiles = $temp;
+            //            dd($files);
+            $count +=count($getfiles);
+        }
+
+        if (($getfiles === null && $getfolders === null ) || $count !== count($filename) + count($foldername) )
+        {
+            return response()->json(['error'=>'no such folder or file'],404);
+        }
+
+        if ($count > 1 )
+            $show_name = $showname."等文件";
+        else
+            $show_name = $showname;
+        /*   {*/
+        $path = myglobal::makePath(40);
+
+        //            $size = $res[0]->file_size;
+        \DB::beginTransaction();
+        try{
+            $res = Path::create(
+                [
+                    'show_name'=>$show_name,
+                    'path'=>$path,
+                    'user_id'=>$user_id,
+                    'active_time'=>3*24*60*60,//3天
+                    'download_thing'=>['folder'=>$folders,'file'=>$files],
+                    'download_folders'=>$getfolders,
+                    'download_files'=>$getfiles,
+                    'sum'=>$count,
+                    'created_at'=>date('Y-m-d H:i:s'),
+                ]
+            );
+            \DB::commit();
+            //                var_dump($file_name);
+            //                die;
+        }catch (\Exception $e)
+        {
+            \DB::rollBack();
+            return response()->json(['error'=>$e->getMessage()],403);
+        }
+
+        $path = $_SERVER["HTTP_HOST"].'/api/download/'.$path;
+        return response()->json(['success'=>['path'=>$path,"name"=>$show_name]],200);
+    }
+
+
+    protected function getsharecollection($sharepath,$code = '')
+    {
+        $get = Share::where([['share_path',$sharepath],['invalidation',0]])->first();//找到分享链接
+
+        if ($get->code !== "" )//是否是加密链接
+        {
+
+            if (strtolower($code) !== $get->code)
+            {
+                throw new \Exception('code error');
+               // return response()->json(['error'=>['code error']],403);
+            }
+        }
+        if ($get === null)
+        {
+            throw new \Exception('no such share or sharelink had out of time');
+           // return response()->json(['error'=>['no such share or sharelink had out of time']],404);
+        }
+        if ($get->active_time === -1 && time() - $get->created_at > $get->active_time)//永久与超时
+        {
+            $get = Share::where([['share_path',$sharepath],['invalidation',0]])->update(['invalidation'=>1]);
+            throw new \Exception('no such share or sharelink had out of time');
+//            return response()->json(['error'=>['no such share or sharelink had out of time']]);
+        }
+        return $get;
+    }
+
 
     protected function searchFolder(array $dir,$user_root,$user_id,$create = false)
     {

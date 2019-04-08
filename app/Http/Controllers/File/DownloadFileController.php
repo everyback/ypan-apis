@@ -29,23 +29,7 @@ class DownloadFileController extends Controller
         $user_id = auth('api')->user()->id;
         if (!$fid)
             return response()->json(['error'=>'no such folder'],404);
-/*        $files = UserFile::where(
-            [
-                [ 'folder_id',$fid],
-                ['updater_id',$user_id],
-                ['deleted',0],
-//                mid, folder_id, file_oid, , file_type, updater_id, file_size, deleted, created_at, updated_at
-                //  'role'=>0,
-            ]
-        )->whereIn('file_name',$filename)->get(["folder_id","file_name"]);
-        $folders = Folder::where(
-            [
-                [ 'belong',$fid],
-                ['user_id',$user_id],
-                ['deleted',0],
-                //  'role'=>0,
-            ]
-        )->whereIn('folder_name',$foldername)->get(["fid","folder_name"]);*/
+
         $files = [];
         $folders = [];
         $count = 0 ;
