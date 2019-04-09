@@ -426,7 +426,7 @@ FROM user_files WHERE(deleted=0 AND folder_id=? ) ",[$nfid,$value["fid"]]);
           //  dd($res2);
             if ($value["child"] !== 0)
             {
-                $this->setfolders($value["child"],$nfid);
+                $size += $this->setfolders($value["child"],$nfid);
             }
 
         }

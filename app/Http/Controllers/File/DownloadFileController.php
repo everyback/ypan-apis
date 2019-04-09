@@ -41,7 +41,6 @@ class DownloadFileController extends Controller
                     [ 'belong',$fid],
                     ['user_id',$user_id],
                     ['deleted',0],
-                    //  'role'=>0,
                 ]
             )->whereIn('folder_name',$foldername)->get(["fid","folder_name"]);
             if ($folders === null)
@@ -63,8 +62,6 @@ class DownloadFileController extends Controller
                     [ 'folder_id',$fid],
                     ['updater_id',$user_id],
                     ['deleted',0],
-                    //                mid, folder_id, file_oid, , file_type, updater_id, file_size, deleted, created_at, updated_at
-                    //  'role'=>0,
                 ]
             )->whereIn('file_name',$filename)->get(["mid","file_name"]);
             if ($files === null || count($files) !== count($filename))
@@ -87,11 +84,6 @@ class DownloadFileController extends Controller
         {
             return response()->json(['error'=>'no such folder or file'],404);
         }
-
- /*       if (/*count($res) !== count($filename) &&// count($files) === 0  || count($folders) === 0)
-        {
-            return response()->json(['error'=>'No such files or folders'],400);
-        }*/
        if ($count > 1 )
            $show_name = $showname."等文件";
         else
@@ -116,8 +108,6 @@ class DownloadFileController extends Controller
                     ]
                 );
                 \DB::commit();
-                //                var_dump($file_name);
-                //                die;
             }catch (\Exception $e)
             {
                 \DB::rollBack();
@@ -251,7 +241,7 @@ class DownloadFileController extends Controller
             $tree = myglobal::arrayToTree($folders,$fid);//文件夹树构建完成
             try
             {
-                $files = $this->setfolders($tree,$fid);
+                $files = $this->getfilesfromtree($tree,$fid);
                /// dd($files);
                 $SendFile->sethead($res->show_name);
                 foreach ($files as $value)
@@ -298,7 +288,7 @@ class DownloadFileController extends Controller
             $tree = myglobal::arrayToTree($folders,$fid);//文件夹树构建完成
             try
             {
-                $files = array_merge($this->setfolders($tree,$fid),$files);
+                $files = array_merge($this->getfilesfromtree($tree,$fid),$files);
                // dd($files);
                 $SendFile->sethead($res->show_name);
                 foreach ($files as $value)
@@ -365,7 +355,7 @@ class DownloadFileController extends Controller
         return $point_id === null || $point_id === '' ? false:$point_id;
     }
 
-    protected function setfolders($tree,$fid, $path = '')
+    protected function getfilesfromtree($tree, $fid, $path = '')
     {
         //  $fid =
         //  dump($fid);
@@ -408,7 +398,7 @@ class DownloadFileController extends Controller
             //  dd($res2);
             if ($value["child"] !== 0)
             {
-                $files = array_merge($this->setfolders($value["child"],0,$inpath),$files);
+                $files = array_merge($this->getfilesfromtree($value["child"],0,$inpath),$files);
             }
 
         }

@@ -11,6 +11,8 @@ use myglobal\myglobal;
 use App\Model\share_count as ShareCount;
 use App\Events\ShareEvent;
 use App\Model\NDownloadPath as Path;
+use App\User;
+use DB;
 //use Psy\Exception;
 
 class ShareController extends Controller
@@ -118,8 +120,10 @@ class ShareController extends Controller
         }
         $dir = $request->attributes->get('dirarray');
         $code = $request->input('code') === null ? '': $request->input('code');
+        $user_id = auth('api')->user();
+        $user_id = $user_id === null ? -1:$user_id->id;
         try{
-            $get = $this->getsharecollection($sharepath,$code);
+            $get = $this->getsharecollection($sharepath,$code,$user_id);
 
         }catch (\Exception $e)
         {
@@ -131,8 +135,6 @@ class ShareController extends Controller
 
         if ( !is_array($dir) || count($dir) === 0)//没有指定dir就是显示分享的基础连接
         {
-            $user_id = auth('api')->user();
-            $user_id = $user_id === null ? -1:$user_id->id;
             event(new ShareEvent($user_id, \Request::getClientIp(),'read',$sharepath, time()));//是否有阅读
             $ret = ($this->pagecreatebyid($files,$folders,50));
             return response()->json(['success'=>['data'=>$ret]],200);
@@ -244,6 +246,143 @@ class ShareController extends Controller
 
     function saveto(Request $request)
     {
+        $user_root = auth('api')->user()->user_root;
+        $user_id = auth('api')->user()->id;
+        $foldername = $request->input('foldername') === null ? []:$request->input('foldername');
+        $sharepath = $request->input('sharepath');
+        $filename = $request->input('filename') === null ? []:$request->input('filename');
+        $dir_to = $request->attributes->get('dir_to');
+        if (!$sharepath || !isset($dir_to) )
+            return response()->json(['error'=>'Bad Request'],400);
+
+        $code = $request->input('code') === null ? '': $request->input('code');
+        try{
+            $get = $this->getsharecollection($sharepath,$code,$user_id);//获取整个share的集合
+
+        }catch (\Exception $e)
+        {
+            return response()->json(['error'=>$e->getMessage()],403);
+        }
+        $folders = $get->share_folders;
+        $files = $get->share_files;
+
+        if (count($dir_to) === 0 )
+            $newfid = $user_root;
+        else
+            $newfid = $this->searchFolder($request->attributes->get('dir_to'),$user_root,$user_id );
+        if (count($foldername) !== 0)
+        {
+            $foldersum = Folder::where([['deleted','0']])->whereIn('folder_name',$foldername)->whereIn('fid',$folders)->count();//测文件夹数量
+            //dd($foldersum);
+            if ($foldersum !== count($foldername))
+            {
+                return response()->json(['error'=>'sum folder false ,please fresh it and reselect'],403);
+            }
+            $cover = Folder::where([['user_id',$user_id],['belong',$newfid],['deleted','0']])->whereIn('folder_name',$foldername)->exists();//测新位置重复
+            if ($cover === true )
+            {
+                return response()->json(['error'=>'have same name folder'],403);
+            }
+
+            try{//先检查文件大小
+                $res = UserFile::where(
+                    [
+                        ['deleted',0],
+                    ]
+                )->whereIn('file_name',$filename)->whereIn('mid',$files)->pluck('file_size')->toArray();
+                if (count($res) !== count($filename))
+                    throw new \Exception('no such files');
+                $sum = array_sum($res);
+                $userspace = auth('api')->user()->space_used;
+                $allspace = auth('api')->user()->space;
+                if ($sum + $userspace > $allspace)
+                    throw new \Exception('no enough space');
+                $res = UserFile::where(
+                    [
+                        [ 'folder_id',$newfid],
+                        ['updater_id',$user_id],
+                        ['deleted',0],
+                        //  'role'=>0,
+                    ]
+                )->whereIn('file_name',$filename)->exists();
+                // if ($res !== 0)
+                if ($res === true)
+                    throw new \Exception('have same files');
+                $str = myglobal::setmult(count($filename));
+                $str2 = myglobal::setmult(count($files));
+                $datas = array_merge([$newfid,$user_id],$filename,$files);
+                \DB::beginTransaction();
+                try{            //开始写入文件
+                    $res2 = DB::insert("INSERT INTO user_files 
+    (folder_id,file_oid,file_name,file_type,updater_id,file_size,deleted,created_at,updated_at)
+    SELECT ?,file_oid,file_name,file_type,?,file_size,deleted,created_at,updated_at 
+    FROM user_files WHERE(deleted=0 ) AND file_name IN ($str) AND mid IN ($str2)",
+                        $datas);
+                    if (!$res2)
+                    {
+                        throw new \Exception('unknow error');
+                    }
+//                    dd($sum);
+                    $res3 = User::where('id',$user_id)->update(['space_used'=>$sum+$userspace]);
+                    DB::commit();
+                }catch (\Exception $e)
+                {
+                    DB::rollBack();
+                    throw new \Exception($e->getMessage());
+                }
+            }catch (\Exception $e)
+            {
+                return response()->json(['error'=>$e->getMessage()],403);
+            }
+        }
+
+        if (count($foldername) !== 0)
+        {
+            $str = myglobal::setmult(count($foldername));
+            $str2 = myglobal::setmult(count($folders));
+            $datas = array_merge($foldername,$folders);
+            $fid = Folder::whereIn('folder_name',$foldername)->whereIn('fid',$folders)->value('belong');
+            $res = \DB::select("with recursive mys  as(
+                  select fid,belong
+                  from folders
+                  where
+                    ( deleted='0') AND folder_name IN ($str) AND fid IN ($str2)
+                  union all
+                  select
+                    f.fid,
+                    f.belong
+                  from folders f inner join mys m on   m.fid = f.belong )
+                select * from mys;",
+                $datas);
+            $res = array_merge([(object)['fid'=>$fid,'belong'=>-1]],$res);//拿到正式的文件夹树平面
+            if(count($res) > 100)
+            {
+                return response()->json(['error'=>'too much, gun'],403);
+            }
+            $tree = myglobal::arrayToTree($res,$fid);//文件夹树生成
+            //深度优先吧。。。。。
+          //  dd($user_id);
+            \DB::beginTransaction();
+            try{
+                $allsize = $this->setfolders($tree,$newfid,$user_id);
+                //var_dump($get);
+                $userspace = auth('api')->user()->space_used;
+                $allspace = auth('api')->user()->space;
+                //dd($allsize);
+                if ($userspace + $allsize < $allspace)
+                    $res2 = User::where('id',$user_id)->update(['space_used'=>$userspace + $allsize]);
+                else
+                    throw new \Exception("not enough space");
+                event(new ShareEvent($user_id, \Request::getClientIp(),'resave',$sharepath, time()));//被转存
+                \DB::commit();
+            }catch (\Exception $e)
+            {
+                \DB::rollBack();
+                return  response()->json(['error'=>$e->getMessage()],403);
+            }
+        }
+
+        return  response()->json(['success'=>'copy completed']);
 
     }
 
@@ -258,7 +397,7 @@ class ShareController extends Controller
 
         $code = $request->input('code') === null ? '': $request->input('code');
         try{
-            $get = $this->getsharecollection($sharepath,$code);//获取整个share的集合
+            $get = $this->getsharecollection($sharepath,$code,$user_id);//获取整个share的集合
 
         }catch (\Exception $e)
         {
@@ -277,7 +416,6 @@ class ShareController extends Controller
         {
             $fid = -1;
         }
-
 
         if (!$fid)
             return response()->json(['error'=>'no such folder'],404);
@@ -385,20 +523,20 @@ class ShareController extends Controller
             \DB::rollBack();
             return response()->json(['error'=>$e->getMessage()],403);
         }
-
+        event(new ShareEvent($user_id, \Request::getClientIp(),'download',$sharepath, time()));//是否有阅读
         $path = $_SERVER["HTTP_HOST"].'/api/download/'.$path;
         return response()->json(['success'=>['path'=>$path,"name"=>$show_name]],200);
     }
 
 
-    protected function getsharecollection($sharepath,$code = '')
+    protected function getsharecollection($sharepath,$code = '',$user_id = -1)
     {
         $get = Share::where([['share_path',$sharepath],['invalidation',0]])->first();//找到分享链接
 
         if ($get->code !== "" )//是否是加密链接
         {
 
-            if (strtolower($code) !== $get->code)
+            if (strtolower($code) !== $get->code && $user_id !== $get->user_id)
             {
                 throw new \Exception('code error');
                // return response()->json(['error'=>['code error']],403);
@@ -471,6 +609,41 @@ class ShareController extends Controller
             }
         }
         return $point_id === null || $point_id === '' ? false:$point_id;
+    }
+
+    protected function setfolders($tree,$fid,$user_id = -1)
+    {
+        //  $fid =
+        //  dump($fid);
+        $size  = 0;
+        foreach ($tree as $value)
+        {
+            // dump($value["fid"]);
+            //复制文件夹
+            $res2 = \DB::insert("INSERT INTO folders 
+            ( belong, folder_name, creater_id, user_id, deleted, created_at, updated_at)
+            SELECT  ?, folder_name, creater_id, ?, deleted, created_at, updated_at
+            FROM folders WHERE(deleted=0 AND fid=? )",[$fid,$user_id,$value["fid"]]);
+            //
+            $nfid = \DB::select("SELECT LAST_INSERT_ID() l")[0]->l;
+            //dump($value["child"]);
+
+            $sizes= UserFile::where([["deleted",0],["folder_id",$value["fid"]]])->pluck("file_size")->toArray();
+            $size += array_sum($sizes);
+          //  dump($size);
+            //复制文件
+            $res2 = \DB::insert("INSERT INTO user_files 
+            (folder_id,file_oid,file_name,file_type,updater_id,file_size,deleted,created_at,updated_at)
+            SELECT ?,file_oid,file_name,file_type,?,file_size,deleted,created_at,updated_at 
+            FROM user_files WHERE(deleted=0 AND folder_id=? ) ",[$nfid,$user_id,$value["fid"]]);
+            //  dd($res2);
+            if ($value["child"] !== 0)
+            {
+                $size += $this->setfolders($value["child"],$nfid,$user_id);
+            }
+
+        }
+        return $size;
     }
 
 

@@ -86,7 +86,7 @@ Route::middleware(['decode','share' ])->group(function ($router) {
         Route::get('link/{sharepath}','File\ShareController@showshare');
         Route::get('search', 'File\ShareController@searchshare');
         Route::get('search/user', 'File\ShareController@searchusershare');
-
+        Route::post('copy','File\ShareController@saveto');
         Route::post('createdownload','File\ShareController@createdownload');//还没搞好
 
     });

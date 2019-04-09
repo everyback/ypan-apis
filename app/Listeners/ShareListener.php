@@ -39,17 +39,21 @@ class ShareListener
         $action = $event->getAction();
         $settime = time() - 24*60*60;
         $path = $event->getPath();
-        $doesexis = Uses::orWhere([
+        $doesexis = Uses::where([
             ["created_at", ">" ,"$settime"],
             ["share_path" ,$path],
             ["user_id",$user],
-        ])
-                        ->orWhere([
-                            ["user_ip",$ip],
-                            ["created_at", ">" ,"$settime"],
-                            ["share_path" ,$path],
-                        ])
-                        ->doesntExist();
+        ])->doesntExist();
+
+        if (!$doesexis)
+        {
+            $doesexis = Uses::where([
+                ["user_ip",$ip],
+                ["created_at", ">" ,"$settime"],
+                ["share_path" ,$path],
+            ])->doesntExist();
+        }
+
 
         if ($doesexis === true)
         {
