@@ -21,12 +21,12 @@ class DownloadFileController extends Controller
     function createpath(Request $request)//完整dir地址
     {
         $dir = $request->attributes->get('dirarray');
-        $user_id = auth('api')->user()->id;
+        $user_id = auth('api')->user() === null ? -1:auth('api')->user()->id;
         $user_root = auth('api')->user()->user_root;
         $filename = $request->input('filename') === null ? [] : $request->input('filename');
         $foldername = $request->input('foldername') === null ? [] : $request->input('foldername');
         $fid = $this->searchFolder($dir,$user_root,$user_id);
-        $user_id = auth('api')->user()->id;
+       // $user_id = auth('api')->user()->id;
         if (!$fid)
             return response()->json(['error'=>'no such folder'],404);
 

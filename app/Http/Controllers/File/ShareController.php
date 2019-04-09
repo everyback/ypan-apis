@@ -28,22 +28,30 @@ class ShareController extends Controller
         $user_id = auth('api')->user()->id;
         $user_root = auth('api')->user()->user_root;
         $dir = $request->attributes->get('dirarray');
-        $filename = $request->input('filename');
-        $folder_name = $request->input('foldername');
-        $active_time = $request->input('active_time') ? $request->input('active_time') : 7*24*24*60*60;
+        $foldername = $request->input('foldername') === null ? []:$request->input('foldername');
+        $filename = $request->input('filename') === null ? []:$request->input('filename');
+        $active_time = $request->input('activetime') === null ? $request->input('activetime') : 7;
         $active_time = $active_time <= 0 ? -1:$active_time;
         $private = $request->input('private') ? $request->input('private'): false;
         $fid = $this->searchFolder($dir,$user_root,$user_id);
         $outfilemid = [];
-        $outfid = null;
+        $outfid = [];
         $things = null;
+        switch ($active_time)
+        {
+            case 7:  $active_time = 7*24*24*60*60;break;
+            case 15: $active_time = 15*24*24*60*60;break;
+            case -1: $active_time = -1;break;
+            default: $active_time = 7*24*24*60*60;break;
+        }
+
         if (!$fid)
             return response()->json(['error'=>'no such folder'],404);
         $showname = "";
         $count = 0;
-        if ($folder_name !== null &&count($folder_name) !== 0)
+        if (/*$foldername !== null && */count($foldername) !== 0)
         {
-            $outfid = Folder::where([["belong",$fid],["deleted",0],['user_id',$user_id]])->whereIn("folder_name",$folder_name)
+            $outfid = Folder::where([["belong",$fid],["deleted",0],['user_id',$user_id]])->whereIn("folder_name",$foldername)
                                                                                          ->pluck("folder_name","fid");
             if ($outfid === null)
                 return response()->json(['error'=>'no such folder'],404);
@@ -55,7 +63,7 @@ class ShareController extends Controller
             $count +=count($outfid);
         }
 
-        if ($filename !== null &&count($filename) !== 0)//代表有值
+        if (/*$filename !== null &&*/count($filename) !== 0)//代表有值
         {
             $outfilemid = UserFile::where([["folder_id",$fid],["deleted",0],['updater_id',$user_id]])->whereIn("file_name",$filename)
                                                                                                      ->pluck("file_name","mid");
@@ -104,7 +112,7 @@ class ShareController extends Controller
         {
             return response()->json(['error'=>$e->getMessage()],403);
         }
-        $share = $_SERVER["HTTP_HOST"].'/api/share/link/'.$path;
+        $share = "http://".$_SERVER["HTTP_HOST"].'/share/'.$path;
         if ($private === false)
             return response()->json(['success'=>['path'=>$share]]);
         else
@@ -123,7 +131,7 @@ class ShareController extends Controller
         $user_id = auth('api')->user();
         $user_id = $user_id === null ? -1:$user_id->id;
         try{
-            $get = $this->getsharecollection($sharepath,$code,$user_id);
+            $get = $this->getShareCollection($sharepath,$code,$user_id);
 
         }catch (\Exception $e)
         {
@@ -132,12 +140,14 @@ class ShareController extends Controller
 
         $files = $get->share_files;
         $folders = $get->share_folders;
+        $username =  $get->name;
 
         if ( !is_array($dir) || count($dir) === 0)//没有指定dir就是显示分享的基础连接
         {
             event(new ShareEvent($user_id, \Request::getClientIp(),'read',$sharepath, time()));//是否有阅读
             $ret = ($this->pagecreatebyid($files,$folders,50));
-            return response()->json(['success'=>['data'=>$ret]],200);
+            //$ret = array_merge($ret,['username'=>$username]);
+            return response()->json(['success'=>['data'=>$ret,'username'=>$username]],200);
         }
         else{//指定dir就是该连接下面的文件树结构，直接访问分享用户文件夹
             if(count($folders) === 0)
@@ -148,7 +158,8 @@ class ShareController extends Controller
             $page = $request->input("page") !== null ?  $request->input("pagesize"): 1 ;
             $fid = $this->searchShareFileFid($dir ,$folders);
             $rets = $this->pagecreatebyfolder($fid,$pagesize,$page);
-            return response()->json(['success'=>['data'=>$rets]],200);
+          //  $rets = array_merge($rets,['username'=>$username]);
+            return response()->json(['success'=>['data'=>$rets,'username'=>$username]],200);
         }
 
 
@@ -257,7 +268,7 @@ class ShareController extends Controller
 
         $code = $request->input('code') === null ? '': $request->input('code');
         try{
-            $get = $this->getsharecollection($sharepath,$code,$user_id);//获取整个share的集合
+            $get = $this->getShareCollection($sharepath,$code,$user_id);//获取整个share的集合
 
         }catch (\Exception $e)
         {
@@ -397,7 +408,7 @@ class ShareController extends Controller
 
         $code = $request->input('code') === null ? '': $request->input('code');
         try{
-            $get = $this->getsharecollection($sharepath,$code,$user_id);//获取整个share的集合
+            $get = $this->getShareCollection($sharepath,$code,$user_id);//获取整个share的集合
 
         }catch (\Exception $e)
         {
@@ -529,10 +540,10 @@ class ShareController extends Controller
     }
 
 
-    protected function getsharecollection($sharepath,$code = '',$user_id = -1)
+    protected function getShareCollection($sharepath, $code = '', $user_id = -1)
     {
-        $get = Share::where([['share_path',$sharepath],['invalidation',0]])->first();//找到分享链接
-
+        $get = Share::where([['share_path',$sharepath],['invalidation',0]])->join('users', 'user_id', '=', 'users.id')->first();//找到分享链接
+        //dd($get);
         if ($get->code !== "" )//是否是加密链接
         {
 
