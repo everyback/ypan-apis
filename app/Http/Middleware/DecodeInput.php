@@ -27,6 +27,7 @@ class DecodeInput
             'title' => 'unique:posts|max:255|nullable|bail',
             'body' => 'nullable|bail',
             'name' => ['nullable',new name(),'bail'],
+            'newname' => ['nullable',new name(),'bail'],
             'email'=> 'nullable|bail|email',
          //   'fid' => ['nullable','string','max:255','bail'],
            // 'secret'
