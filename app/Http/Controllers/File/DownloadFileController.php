@@ -206,7 +206,7 @@ class DownloadFileController extends Controller
           //  var_dump($files);
           //  die;
            $SendFile->sethead($res->show_name);
-            dd($files);
+         //   dd($files);
             foreach ($files as $value)
             {
                 $destination = fopen('php://temp', 'w+b');

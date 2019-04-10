@@ -20,7 +20,7 @@ class ShareController extends Controller
     //
     function __construct()
     {
-        $this->middleware('auth:api' ,['except' => ['showlists','refresh',"showshare","searchshare","createdownload"]]);
+        $this->middleware('auth:api' ,['except' => ['showlists','refresh',"showshare","searchshare","createdownload","showalllists"]]);
     }
 
     function createshare(Request $request)
@@ -112,7 +112,7 @@ class ShareController extends Controller
         {
             return response()->json(['error'=>$e->getMessage()],403);
         }
-        $share = "http://".$_SERVER["HTTP_HOST"].'/share/'.$path;
+        $share = "http://".$_SERVER["HTTP_HOST"].'/share/link'.$path;
         if ($private === false)
             return response()->json(['success'=>['path'=>$share]]);
         else
@@ -155,15 +155,12 @@ class ShareController extends Controller
                 return response()->json(['error'=>'no such folder'],404);
             }
             $pagesize = $request->input("pagesize") !== null ? $request->input("pagesize"):20  ;
-            $page = $request->input("page") !== null ?  $request->input("pagesize"): 1 ;
+            $page = $request->input("page") !== null ?  $request->input("page"): 1 ;
             $fid = $this->searchShareFileFid($dir ,$folders);
             $rets = $this->pagecreatebyfolder($fid,$pagesize,$page);
           //  $rets = array_merge($rets,['username'=>$username]);
             return response()->json(['success'=>['data'=>$rets,'username'=>$username]],200);
         }
-
-
-
     }
 
     function showalllists(Request $request)
@@ -171,13 +168,14 @@ class ShareController extends Controller
         $pagesize = $request->input('pagesize') !== null ? $request->input('pagesize') :20 ;
         $page = $request->input('page') !== null ? $request->input('page') :1 ;
         try{
-            $get = Share::where([['invalidation',0],['private',0]])->limit($pagesize)->offset($pagesize*($page -1))->get();
-
+            $get = Share::where([['invalidation',0],['private',0]])->limit($pagesize)->offset($pagesize*($page -1))
+                ->join('users', 'user_id', '=', 'users.id')
+                ->get(["share_path","private","share.created_at","show_name", "sum","name as user_name"]);
         }catch (\Exception $e)
         {
             return response()->json(['error'=>$e->getMessage()],403);
         }
-        return $get;
+        return response()->json(['success'=>$get]);
     }
 
     function showUserlists(Request $request)
@@ -186,25 +184,29 @@ class ShareController extends Controller
         $pagesize = $request->input('pagesize') !== null ? $request->input('pagesize') :20 ;
         $page = $request->input('page') !== null ? $request->input('page') :1 ;
         try{
-            $get = Share::where([['invalidation',0],['user_id',$user_id]])->limit($pagesize)->offset($pagesize*($page -1))->get();
-
+            $get = Share::where([['invalidation',0],['user_id',$user_id]])->limit($pagesize)->offset($pagesize*($page -1))
+                ->join('share_counts', 'share.share_path', '=', 'share_counts.share_path')
+                ->get(["share.share_path","private","share.created_at","show_name", "sum","read","resave","download","share.code",'active_time']);
         }catch (\Exception $e)
         {
             return response()->json(['error'=>$e->getMessage()],403);
         }
-        return $get;
+        return response()->json(['success'=>$get]);
     }
 
 
     function deleteshare(Request $request)
     {
         $user_id = auth('api')->user()->id;
-        $sharepath = $request->input('share_path');
+        $sharepath = $request->input('sharepath');
         if (!is_array($sharepath))
         {
             try{
-                $get = Share::where([['share_path',$sharepath],['invalidation',0],['user_id',$user_id]])->update(['invalidation',1]);
-
+                $get = Share::where([['share_path',$sharepath],['invalidation',0],['user_id',$user_id]])->update(['invalidation'=>1]);
+                if ($get === null )
+                {
+                    throw new \Exception("no such share");
+                }
             }catch (\Exception $e)
             {
                 return response()->json(['error'=>$e->getMessage()],403);
@@ -213,13 +215,16 @@ class ShareController extends Controller
         else
         {
             try{
-                $get = Share::where([['invalidation',0],['user_id',$user_id]])->whereIn('share_path',$sharepath)->update(['invalidation',1]);
-
+                $get = Share::where([['invalidation',0],['user_id',$user_id]])->whereIn('share_path',$sharepath)->update(['invalidation'=>1]);
+                if ($get === null )
+                {
+                    throw new \Exception("no such share");
+                }
             }catch (\Exception $e)
             {
                 return response()->json(['error'=>$e->getMessage()],403);
             }
-            return response()->json(['success'=>'cancel complete'],403);
+            return response()->json(['success'=>'cancel complete']);
         }
     }
 
@@ -283,67 +288,58 @@ class ShareController extends Controller
             $newfid = $this->searchFolder($request->attributes->get('dir_to'),$user_root,$user_id );
         if (count($foldername) !== 0)
         {
-            $foldersum = Folder::where([['deleted','0']])->whereIn('folder_name',$foldername)->whereIn('fid',$folders)->count();//测文件夹数量
+            $foldersum = Folder::where([['deleted', '0']])->whereIn('folder_name', $foldername)->whereIn('fid', $folders)->count();//测文件夹数量
             //dd($foldersum);
             if ($foldersum !== count($foldername))
             {
-                return response()->json(['error'=>'sum folder false ,please fresh it and reselect'],403);
+                return response()->json(['error' => 'sum folder false ,please fresh it and reselect'], 403);
             }
-            $cover = Folder::where([['user_id',$user_id],['belong',$newfid],['deleted','0']])->whereIn('folder_name',$foldername)->exists();//测新位置重复
-            if ($cover === true )
+            $cover = Folder::where([['user_id', $user_id], ['belong', $newfid], ['deleted', '0']])->whereIn('folder_name', $foldername)->exists();//测新位置重复
+            if ($cover === true)
             {
-                return response()->json(['error'=>'have same name folder'],403);
+                return response()->json(['error' => 'have same name folder'], 403);
             }
+            if (count($filename) !== 0)
+            {
 
-            try{//先检查文件大小
-                $res = UserFile::where(
-                    [
-                        ['deleted',0],
-                    ]
-                )->whereIn('file_name',$filename)->whereIn('mid',$files)->pluck('file_size')->toArray();
-                if (count($res) !== count($filename))
-                    throw new \Exception('no such files');
-                $sum = array_sum($res);
-                $userspace = auth('api')->user()->space_used;
-                $allspace = auth('api')->user()->space;
-                if ($sum + $userspace > $allspace)
-                    throw new \Exception('no enough space');
-                $res = UserFile::where(
-                    [
-                        [ 'folder_id',$newfid],
-                        ['updater_id',$user_id],
-                        ['deleted',0],
-                        //  'role'=>0,
-                    ]
-                )->whereIn('file_name',$filename)->exists();
-                // if ($res !== 0)
-                if ($res === true)
-                    throw new \Exception('have same files');
-                $str = myglobal::setmult(count($filename));
-                $str2 = myglobal::setmult(count($files));
-                $datas = array_merge([$newfid,$user_id],$filename,$files);
-                \DB::beginTransaction();
-                try{            //开始写入文件
-                    $res2 = DB::insert("INSERT INTO user_files 
-    (folder_id,file_oid,file_name,file_type,updater_id,file_size,deleted,created_at,updated_at)
-    SELECT ?,file_oid,file_name,file_type,?,file_size,deleted,created_at,updated_at 
-    FROM user_files WHERE(deleted=0 ) AND file_name IN ($str) AND mid IN ($str2)",
-                        $datas);
-                    if (!$res2)
+                try
+                {//先检查文件大小
+                    $res = UserFile::where([['deleted', 0],])->whereIn('file_name', $filename)->whereIn('mid', $files)->pluck('file_size')->toArray();
+                    if (count($res) !== count($filename)) throw new \Exception('no such files');
+                    $sum = array_sum($res);
+                    $userspace = auth('api')->user()->space_used;
+                    $allspace = auth('api')->user()->space;
+                    if ($sum + $userspace > $allspace) throw new \Exception('no enough space');
+                    $res = UserFile::where([['folder_id', $newfid], ['updater_id', $user_id], ['deleted', 0],//  'role'=>0,
+                        ])->whereIn('file_name', $filename)->exists();
+                    // if ($res !== 0)
+                    if ($res === true) throw new \Exception('have same files');
+                    $str = myglobal::setmult(count($filename));
+                    $str2 = myglobal::setmult(count($files));
+                    $datas = array_merge([$newfid, $user_id], $filename, $files);
+                    \DB::beginTransaction();
+                    try
+                    {            //开始写入文件
+                        $res2 = DB::insert("INSERT INTO user_files 
+        (folder_id,file_oid,file_name,file_type,updater_id,file_size,deleted,created_at,updated_at)
+        SELECT ?,file_oid,file_name,file_type,?,file_size,deleted,created_at,updated_at 
+        FROM user_files WHERE(deleted=0 ) AND file_name IN ($str) AND mid IN ($str2)", $datas);
+                        if (!$res2)
+                        {
+                            throw new \Exception('unknow error');
+                        }
+                        //                    dd($sum);
+                        $res3 = User::where('id', $user_id)->update(['space_used' => $sum + $userspace]);
+                        DB::commit();
+                    } catch (\Exception $e)
                     {
-                        throw new \Exception('unknow error');
+                        DB::rollBack();
+                        throw new \Exception($e->getMessage());
                     }
-//                    dd($sum);
-                    $res3 = User::where('id',$user_id)->update(['space_used'=>$sum+$userspace]);
-                    DB::commit();
-                }catch (\Exception $e)
+                } catch (\Exception $e)
                 {
-                    DB::rollBack();
-                    throw new \Exception($e->getMessage());
+                    return response()->json(['error' => $e->getMessage()], 403);
                 }
-            }catch (\Exception $e)
-            {
-                return response()->json(['error'=>$e->getMessage()],403);
             }
         }
 
@@ -405,7 +401,7 @@ class ShareController extends Controller
         $sharepath = $request->input('sharepath');
         $filename = $request->input('filename') === null ? [] : $request->input('filename');
         $foldername = $request->input('foldername') === null ? [] : $request->input('foldername');
-
+       // dd($sharepath);
         $code = $request->input('code') === null ? '': $request->input('code');
         try{
             $get = $this->getShareCollection($sharepath,$code,$user_id);//获取整个share的集合
@@ -416,6 +412,14 @@ class ShareController extends Controller
         }
         $folders = $get->share_folders;
         $files = $get->share_files;
+
+        if (count($foldername) + count($filename) === 0)
+        {
+            $foldername = Folder::where('deleted',0)->whereIn('fid',$folders)->pluck("folder_name");
+            $filename = UserFile::where('deleted',0)->whereIn("mid",$files)->pluck("file_name");
+        }
+      //  dd($foldername);
+
         $getfiles = [];
         $getfolders = [];
         $dircount = count($dir);
@@ -543,8 +547,12 @@ class ShareController extends Controller
     protected function getShareCollection($sharepath, $code = '', $user_id = -1)
     {
         $get = Share::where([['share_path',$sharepath],['invalidation',0]])->join('users', 'user_id', '=', 'users.id')->first();//找到分享链接
-        //dd($get);
-        if ($get->code !== "" )//是否是加密链接
+        if ($get === null)
+        {
+            throw new \Exception('no such share or sharelink had out of time');
+            // return response()->json(['error'=>['no such share or sharelink had out of time']],404);
+        }
+        if ($get->code != "0" )//是否是加密链接
         {
 
             if (strtolower($code) !== $get->code && $user_id !== $get->user_id)
@@ -552,11 +560,6 @@ class ShareController extends Controller
                 throw new \Exception('code error');
                // return response()->json(['error'=>['code error']],403);
             }
-        }
-        if ($get === null)
-        {
-            throw new \Exception('no such share or sharelink had out of time');
-           // return response()->json(['error'=>['no such share or sharelink had out of time']],404);
         }
         if ($get->active_time === -1 && time() - $get->created_at > $get->active_time)//永久与超时
         {
@@ -669,14 +672,14 @@ class ShareController extends Controller
         {
             $folders = myglobal::setmult($cfolder);
             $datas = array_merge($fids,[$pagesize,$offset]);
-            $res = \DB::select("SELECT folder_name name,created_at, updated_at ,0 AS 'isfile'  FROM folders f 
+            $res = \DB::select("SELECT folder_name name,created_at, updated_at ,0 AS 'isfile' ,'0' AS 'size'  FROM folders f 
                       WHERE (deleted=0)  AND f.fid IN ($folders) limit ? OFFSET ?",
                 $datas);
         }else if ($cfile !== 0 &&$cfolder === 0)// 只有文件
         {
             $files =  myglobal::setmult($cfile);
             $datas = array_merge($fileids,[$pagesize,$offset]);
-            $res = \DB::select("SELECT file_name name,created_at ,updated_at ,1 AS 'isfile' FROM user_files
+            $res = \DB::select("SELECT file_name name,created_at ,updated_at ,1 AS 'isfile',file_size as 'size' FROM user_files
                       WHERE (deleted=0 ) AND mid IN ($files) limit ?  OFFSET ?",
                 $datas);
         }
@@ -685,9 +688,9 @@ class ShareController extends Controller
             $files =  myglobal::setmult($cfile);
             $folders = myglobal::setmult($cfolder);
             $datas = array_merge($fids,$fileids,[$pagesize,$offset]);
-            $res = \DB::select("SELECT folder_name name,created_at, updated_at ,0 AS 'isfile'  FROM folders f 
+            $res = \DB::select("SELECT folder_name name,created_at, updated_at ,0 AS 'isfile' ,'0' AS 'size' FROM folders f 
                       WHERE (deleted=0)  AND f.fid IN ($folders)
-                      UNION ALL SELECT file_name name,created_at ,updated_at ,1 AS 'isfile' FROM user_files 
+                      UNION ALL SELECT file_name name,created_at ,updated_at ,1 AS 'isfile',file_size as 'size' FROM user_files 
                       WHERE (deleted=0 ) AND mid IN ($files) limit ? OFFSET ?",
                 $datas);
         }
@@ -703,9 +706,10 @@ class ShareController extends Controller
     {
         $offset = $pagesize * ($pageindex - 1);
         $datas = [$folderid,$folderid,$pagesize,$offset];
-        $res = \DB::select("SELECT folder_name name,created_at, updated_at ,0 AS 'isfile'  FROM folders f WHERE (deleted=0)  AND f.belong = ?
-UNION ALL SELECT file_name name,created_at ,updated_at ,1 AS 'isfile' FROM user_files WHERE (deleted=0 ) AND folder_id = ? limit ?  OFFSET ?",
+        $res = \DB::select("SELECT folder_name name,created_at, updated_at ,0 AS 'isfile', '0' AS 'size' FROM folders f WHERE (deleted=0)  AND f.belong = ?
+UNION ALL SELECT file_name name,created_at ,updated_at ,1 AS 'isfile',file_size as 'size'  FROM user_files WHERE (deleted=0 ) AND folder_id = ? limit ?  OFFSET ?",
             $datas);
+        //dd($res);
         if ($res === null)
         {
             return false;

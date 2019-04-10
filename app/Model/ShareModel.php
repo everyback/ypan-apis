@@ -9,7 +9,7 @@ class ShareModel extends Model
     //
     protected $table = 'share';
     protected  $fillable = ['share_thing','share_path','user_id','private','code','active_time','invalidation','share_files','share_folders','created_at','show_name','sum'];
-    protected $hidden = ['active_time','invalidation','code','mid'];
+    protected $hidden = ['invalidation','mid'];
 //    protected $casts = [ 'share_thing' => 'json' ];
     //    protected $appends = ['is_file','is_folder'];
     protected $casts = [

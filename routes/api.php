@@ -39,6 +39,8 @@ Route::group([
     Route::get('sameemail','Person\RegisterController@sameemail');
     //Route::get('ddddd','RegisterController@sameemail');
     Route::post('register','Person\RegisterController@register')->middleware('register');
+    Route::post('changepassword','Person\PersoninfoController@changepassword');
+    Route::post('changename','Person\PersoninfoController@changename');
 });
 
 Route::middleware(['decode', 'folder'])->group(function ($router) {
@@ -81,7 +83,7 @@ Route::middleware(['decode','share' ])->group(function ($router) {
     Route::group(['prefix'=>'share'],function ($router){
         Route::post('create','File\ShareController@createshare');
         Route::delete('delete','File\ShareController@deleteshare');
-        Route::post('publiclist','File\ShareController@showalllists');
+        Route::get('publiclist','File\ShareController@showalllists');
         Route::get('userlist','File\ShareController@showUserlists');
         Route::get('link/{sharepath}','File\ShareController@showshare');
         Route::get('search', 'File\ShareController@searchshare');
@@ -116,4 +118,4 @@ Route::get('download/{downloadpath}','File\DownloadFileController@download')->mi
 
 
 //Route::post('/putfile','FilesController@putfiles');
-Route::get('/downloadfile','FilesController@downloadfiles');
+//Route::get('/downloadfile','FilesController@downloadfiles');
