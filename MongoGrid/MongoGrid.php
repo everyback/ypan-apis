@@ -8,6 +8,7 @@
 
 namespace MongoGrid;
 use MongoDB;
+//use MongoClient;
 
 
 class MongoGrid
@@ -17,9 +18,12 @@ class MongoGrid
 
     function __construct($url,$config,$chunksize = 0)
     {
-        $this->concent = new MongoDB\client('mongodb://'.$url,$config);
+        $this->concent = new MongoDB\Client('mongodb://'.$url,$config);
+       //$this->concent = new MongoDB\Driver\Manager('mongodb://'.$url,$config);
+      //  $this->concent = new MongoClient('mongodb://'.$url,$config);
         if ($chunksize > 0)
         $this->chunksize = $chunksize;
+      //  var_dump($this->concent->gridfs);
     }
 
 

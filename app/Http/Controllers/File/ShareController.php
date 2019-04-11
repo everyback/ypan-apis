@@ -112,7 +112,7 @@ class ShareController extends Controller
         {
             return response()->json(['error'=>$e->getMessage()],403);
         }
-        $share = "http://".$_SERVER["HTTP_HOST"].'/share/link'.$path;
+        $share = "http://".$_SERVER["HTTP_HOST"].'/share/link/'.$path;
         if ($private === false)
             return response()->json(['success'=>['path'=>$share]]);
         else
@@ -552,7 +552,7 @@ class ShareController extends Controller
             throw new \Exception('no such share or sharelink had out of time');
             // return response()->json(['error'=>['no such share or sharelink had out of time']],404);
         }
-        if ($get->code != "0" )//是否是加密链接
+        if ($get->code != "0" && $get->code !== "" )//是否是加密链接
         {
 
             if (strtolower($code) !== $get->code && $user_id !== $get->user_id)
