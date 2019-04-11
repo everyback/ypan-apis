@@ -484,37 +484,47 @@ FROM user_files WHERE(deleted=0 AND folder_id=? AND updater_id=?) AND file_name 
     protected function searchFolder(array $dir,$user_root,$user_id,$create = false)
     {
         $point_id = $user_root;//先定位到user_root 的fid;
-        foreach ( $dir as $value )
-        {
-            $last = $point_id;
-            $point_id = Folder::where([['user_id',$user_id],['belong',$point_id],['folder_name',$value],['deleted','0']])->value('fid');//输出当前f_name的fid
-            if ($point_id === null)
+        \DB::beginTransaction();
+        try{
+            foreach ( $dir as $value )
             {
-                if($create)
+                $last = $point_id;
+                $point_id = Folder::where([['user_id',$user_id],['belong',$point_id],['folder_name',$value],['deleted','0']])->lockForUpdate()->value('fid');//输出当前f_name的fid
+                if ($point_id === null)
                 {
-                    try{
-                        $point_id = Folder::insertGetId([
-                            'belong'=>$last,
-                            //'phonenumber'=>$phonenumber,
-                            'folder_name'=>$value,
-                            'deleted'=>0,
-                            "creater_id"=>$user_id,
-                            "user_id"=>$user_id,
-                            'updated_at'=>date('Y-m-d H:i:s'),
-                            'created_at'=>date('Y-m-d H:i:s'),
-                        ]);
-                    }catch (\Exception $e)
+                    if($create)
                     {
-                        return false;
-                    }
-                }
-                else
-                {
-                    break;
-                }
+                        try{
+                            $point_id = Folder::insertGetId([
+                                'belong'=>$last,
+                                //'phonenumber'=>$phonenumber,
+                                'folder_name'=>$value,
+                                'deleted'=>0,
+                                "creater_id"=>$user_id,
+                                "user_id"=>$user_id,
+                                'updated_at'=>date('Y-m-d H:i:s'),
+                                'created_at'=>date('Y-m-d H:i:s'),
+                            ]);
 
+                        }catch (\Exception $e)
+                        {
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
+
+                }
             }
+            \DB::commit();
+        }catch (\Exception $e)
+        {
+            return false;
         }
+
+
         return $point_id === null || $point_id === '' ? false:$point_id;
     }
 
