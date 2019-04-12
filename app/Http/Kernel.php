@@ -45,7 +45,7 @@ class Kernel extends HttpKernel
         ],
 
         'api' => [
-            'throttle:60,1',
+            'throttle:240,1',
             'bindings',
             'ReturnJSON' => \App\Http\Middleware\ReturnJSON::class,
             'FreshToken'=> \App\Http\Middleware\FreshToken::class,
